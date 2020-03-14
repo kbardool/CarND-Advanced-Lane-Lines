@@ -21,8 +21,8 @@ class CalibrationImage():
             self.height    = img.shape[0]
                            
             self.ImgSize   = img.shape[1::-1]
-            self.nx        = []
-            self.ny        = []
+            self.nx        = None
+            self.ny        = None
             self.PtrnFnd   = []
             
             # 3D points from real world space
@@ -57,11 +57,11 @@ class CalibrationImage():
         # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
         # objectpoint  coordiantes are in  (x=0:nx, y=0:ny, z=0)  form
         if debug:
-            print(' displayChessboardCorners for : ', self.filename)
+            print('     findChessboardCorners() : ', self.filename)
             if ret: 
-                print(' Image  : ', self.filename, '               corners: ', corners.shape, ' ret    : ',ret, 'nx/ny: ', nx, ny)
+                print('       corners: ', corners.shape    , '   nx/ny: ', nx, ny, '    return code: ',ret)
             else:
-                print(' Image  : ', self.filename, '               corners:  ---------    ret    : ',ret, 'nx/ny: ', nx, ny)
+                print('       corners:  Not Found         ', '   nx/ny: ', nx, ny, '    return code: ',ret)
             
 
         if ret and save:
@@ -86,6 +86,8 @@ class CalibrationImage():
     def displayChessboardCorners(self, undistort = False, cam = None, nx = None, ny = None, debug = False):
 
         assert (not undistort) or  (undistort and cam is not None),"Camera must be provided when undistort == True"
+        assert (self.nx is not None) or (nx is not None), "self.nx or nx cannot both be None"
+        assert (self.ny is not None) or (ny is not None), "self.ny or ny cannot both be None"
 
         imgOrig = self.getImage()
         nx = self.nx if nx is None else nx
@@ -95,16 +97,17 @@ class CalibrationImage():
             imgResult = np.copy(cam.undistortImage(imgOrig))
         else: 
             imgResult = np.copy(imgOrig)
-        print(nx, ny, imgResult.shape)
+   
         
         ret, corners = cv2.findChessboardCorners(cv2.cvtColor(imgResult, cv2.COLOR_BGR2GRAY),(nx, ny))
 
         if debug:
-            print(' displayChessboardCorners for : ', self.filename)
+            print(' displayChessboardCorners()')
+            print('   nx: {}  ny: {}  imgResult.shape: {} '.format(nx, ny, imgResult.shape)) 
             if ret: 
-                print(' Image  : ', self.filename, 'corners: ', corners.shape, ' ret    : ',ret, 'nx/ny: ', nx, ny)
+                print('   Image  : ', self.filename, 'corners: ', corners.shape, ' ret    : ',ret, 'nx/ny: ', nx, ny)
             else:
-                print(' Image  : ', self.filename, 'corners:  ---------    ret    : ',ret, 'nx/ny: ', nx, ny)
+                print('   Image  : ', self.filename, 'corners:  ---------    ret    : ',ret, 'nx/ny: ', nx, ny)
             
         imgResult = cv2.drawChessboardCorners(imgResult, (nx,ny), corners, ret)  
         
@@ -115,4 +118,3 @@ class CalibrationImage():
 # img = cv2.drawChessboardCorners(img, (9,6), corners, ret)
 # cv2.imshow('img',img)
 # cv2.waitKey(2500)
-

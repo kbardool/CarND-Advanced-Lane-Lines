@@ -40,6 +40,7 @@ class PlotDisplay(Figure):
         xlabel= kwargs.setdefault('xlabel', 'X axis')
         ylabel= kwargs.setdefault('ylabel', 'Y axis')
         color = kwargs.setdefault('color' , 'r')
+        cmap  = kwargs.setdefault('cmap' , 'gray')
         grid  = kwargs.setdefault('grid'  , None)
 
         if self.subplot >= (self.rows * self.cols):

@@ -39,6 +39,28 @@ class Camera():
         self.rotationVecs, \
         self.transformVecs  = cv2.calibrateCamera(objectPts, imagePts, (self.width, self.height), None, None)
         
+        self.display()
+        
+        return 
+
+        
+    def undistortImage(self, inputImg):
+        if self.cameraMatrix is None:
+            print(' ERROR: Camera calibration matrix has not been computed yet! ')
+            print('        Calibrate Camera before attempting to undistort an Image ')
+            return False
+            
+        return cv2.undistort(inputImg, self.cameraMatrix, self.distCoeffs, None, self.cameraMatrix)
+        
+        
+    def getImageChessboardCorners(self,img,nx,ny) :
+
+        return cv2.findChessboardCorners(img, (nx, ny) ,None)
+     
+        
+    def display(self):
+        print(' Camera Parameters: ')
+        print('-'*30)
         print(' RMS reprojection error   : ', self.calib_RMS)
         print('\n Camera Matrix          : ', self.cameraMatrix.shape, '\n', self.cameraMatrix)
         print('\n Distortion Coefficients: ', self.distCoeffs)
@@ -49,19 +71,5 @@ class Camera():
         print('\n Transformation Vectors : ', type(self.transformVecs), len(self.transformVecs) ,'  * ', self.transformVecs[0].shape)
         
         for j in range(0,len(self.transformVecs)):
-            print('   ', j, ': ', self.transformVecs[j].T)        
-        
-        return 
-
-        
-    def undistortImage(self, inputImg):
-        return cv2.undistort(inputImg, self.cameraMatrix, self.distCoeffs, None, self.cameraMatrix)
-        
-        
-    def getImageChessboardCorners(self,img,nx,ny) :
-
-        return cv2.findChessboardCorners(img, (nx, ny) ,None)
-     
-        
-    
+            print('   ', j, ': ', self.transformVecs[j].T)            
     
