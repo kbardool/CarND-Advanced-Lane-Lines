@@ -9,6 +9,7 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import pprint 
 import copy 
+import winsound 
 from collections import deque
 from classes.line import Line
 from classes.plotting import PlotDisplay
@@ -19,59 +20,77 @@ from common.utils import (find_lane_pixels  , search_around_poly,
 from common.sobel import  apply_thresholds,  apply_perspective_transform, perspectiveTransform, erodeDilateImage
                                                                                 
 pp = pprint.PrettyPrinter(indent=2, width=100)
-print(os.getcwd())
-
+print(' Loading pipeline.py - cwd:', os.getcwd())
 
 class ALFPipeline(object):
     NAME                     = 'ALFConfig'
     
     def __init__(self, cameraConfig, **kwargs):
 
-        self.camera                   = cameraConfig
-        self.height                   = self.camera.height
-        self.width                    = self.camera.width
-        self.camera_x                 = self.camera.width //2
-        self.camera_y                 = self.camera.height
-
-        self.mode                     = kwargs.get('mode'                 ,    1)
-        self.POLY_DEGREE              = kwargs.get('poly_degree'          ,    2)
-        self.HISTORY                  = kwargs.get('history'              ,    8)
-        self.ERODE_DILATE             = kwargs.get('erode_dilate'         , False)        
-
+        self.camera                     = cameraConfig
+        self.height                     = self.camera.height
+        self.width                      = self.camera.width
+        self.camera_x                   = self.camera.width //2
+        self.camera_y                   = self.camera.height
+  
+        self.debug                      = kwargs.get('debug'                , False)
+        self.debug2                     = kwargs.get('debug2'               , False)
+        self.debug3                     = kwargs.get('debug3'               , False)
+        self.displayRealignment         = kwargs.get('display_realignment'  , False)
+        self.ERODE_DILATE               = kwargs.get('erode_dilate'         , False)        
+  
+        self.mode                       = kwargs.get('mode'                 ,    1)
+        self.POLY_DEGREE                = kwargs.get('poly_degree'          ,    2)
+        self.HISTORY                    = kwargs.get('history'              ,    8)
         
-        self.NWINDOWS                 = kwargs.get('nwindows'             ,   30)
-        self.HISTOGRAM_WIDTH_RANGE    = kwargs.get('hist_width_range'     ,  600)
-        self.HISTOGRAM_DEPTH_RANGE    = kwargs.get('hist_depth_range'     ,  2 * self.height // 3)
-        self.WINDOW_SRCH_MRGN         = kwargs.get('window_search_margin' ,   55)
-        self.INIT_WINDOW_SRCH_MRGN    = kwargs.get('init_window_search_margin' ,  self.WINDOW_SRCH_MRGN)
-        self.MINPIX                   = kwargs.get('minpix'               ,   90)
-        self.MAXPIX                   = kwargs.get('maxpix'               , 8000)
+        self.NWINDOWS                   = kwargs.get('nwindows'             ,   30)
+        self.HISTOGRAM_WIDTH_RANGE      = kwargs.get('hist_width_range'     ,  600)
+        self.HISTOGRAM_DEPTH_RANGE      = kwargs.get('hist_depth_range'     ,  2 * self.height // 3)
+        self.WINDOW_SRCH_MRGN           = kwargs.get('window_search_margin' ,   55)
+        self.INIT_WINDOW_SRCH_MRGN      = kwargs.get('init_window_search_margin' ,  self.WINDOW_SRCH_MRGN)
+        self.MINPIX                     = kwargs.get('minpix'               ,   90)
+        self.MAXPIX                     = kwargs.get('maxpix'               , 8000)
  
-        self.POLY_SRCH_MRGN           = kwargs.get('poly_search_margin'   ,   45)
-        self.PIXEL_THRESHOLD          = kwargs.get('pixel_threshold'      ,  500)
-        self.PIXEL_RATIO_THRESHOLD    = kwargs.get('pixel_ratio_threshold',   30)
-        self.LANE_RATIO_THRESHOLD     = kwargs.get('lane_ratio_threshold' ,    5)
-        self.RSE_THRESHOLD            = kwargs.get('rse_threshold'        ,   80)
+        self.POLY_SRCH_MRGN             = kwargs.get('poly_search_margin'   ,   45)
+        
+        self.IMAGE_RATIO_HIGH_THRESHOLD = kwargs.get('image_ratio_high_threshold',   40)
+        self.IMAGE_RATIO_LOW_THRESHOLD  = kwargs.get('image_ratio_low_threshold' ,    2)
 
-        self.YELLOW_DETECTION_LIMIT   = kwargs.get('yello_limit'          ,   25)
-        self.RED_DETECTION_LIMIT      = kwargs.get('red_limit'            ,   75)
-        self.OFF_CENTER_ROI_THRESHOLD = kwargs.get('offcntr_roi_threshold',   60)
- 
-        self.debug                    = kwargs.get('debug'                ,False)
-        self.debug2                   = kwargs.get('debug2'               ,False)
-        self.debug3                   = kwargs.get('debug3'               ,False)
+        self.LANE_COUNT_THRESHOLD       = kwargs.get('lane_count_threshold'      , 4500)
+        self.LANE_RATIO_LOW_THRESHOLD   = kwargs.get('lane_ratio_low_threshold'  ,    2)
+        self.LANE_RATIO_HIGH_THRESHOLD  = kwargs.get('lane_ratio_high_threshold' ,   60)
+        
+        self.RSE_THRESHOLD              = kwargs.get('rse_threshold'             ,  80)
+
+        self.PARALLEL_LINES_MARGIN      = kwargs.get('parallel_lines_margin'   ,  70)
+        self.YELLOW_DETECTION_LIMIT     = kwargs.get('yello_limit'             ,  25)
+        self.RED_DETECTION_LIMIT        = kwargs.get('red_limit'               ,  50)
+        self.OFF_CENTER_ROI_THRESHOLD   = kwargs.get('off_center_roi_threshold',  60)
+        self.CURRENT_OFFCTR_ROI_THR     = np.copy(self.OFF_CENTER_ROI_THRESHOLD)
+
         # self.debug3 = self.debug or self.debug2 or self.debug3
         self.HISTOGRAM_SEARCH_RANGE   = (self.camera_x - self.HISTOGRAM_WIDTH_RANGE, self.camera_x + self.HISTOGRAM_WIDTH_RANGE)
 
-        ## Thresholding Parameters 
-        self.HIGH_RGB_THRESHOLD       = kwargs.get('high_rgb_threshold'   ,  180) # 220)
-        self.MED_RGB_THRESHOLD        = kwargs.get('med_rgb_threshold'    ,  180) # 175)   ## chgd from 110 2-26-20
-        self.LOW_RGB_THRESHOLD        = kwargs.get('low_rgb_threshold'    ,  100) # 175)   ## chgd from 110 2-26-20
-        self.VLOW_RGB_THRESHOLD       = kwargs.get('vlow_rgb_threshold'   ,   35) # 175)   ## chgd from 110 2-26-20
-        self.HIGH_SAT_THRESHOLD       = kwargs.get('high_sat_threshold'   ,  110) # 150)
-        self.LOW_SAT_THRESHOLD        = kwargs.get('low_sat_threshold'    ,   20) #  20)   ## chgd from 110 2-26-20
+        # XHIGH_SAT_THRESHOLD =  120 
+        # HIGH_SAT_THRESHOLD  =   65
+        # LOW_SAT_THRESHOLD   =   30
+        
+        # HIGH_RGB_THRESHOLD  =  205
+        # MED_RGB_THRESHOLD   =  170
+        # LOW_RGB_THRESHOLD   =  120
+        # VLOW_RGB_THRESHOLD  =   90              
 
-        self.XHIGH_THRESHOLDING       = kwargs.get('high_thresholding'    , 'cmb_mag_x')
+        ## Thresholding Parameters 
+        self.HIGH_RGB_THRESHOLD       = kwargs.get('high_rgb_threshold'   ,  180)   # 220
+        self.MED_RGB_THRESHOLD        = kwargs.get('med_rgb_threshold'    ,  180)   # 175   ## chgd from 110 2-26-20
+        self.LOW_RGB_THRESHOLD        = kwargs.get('low_rgb_threshold'    ,  100)   # 175   ## chgd from 110 2-26-20
+        self.VLOW_RGB_THRESHOLD       = kwargs.get('vlow_rgb_threshold'   ,   35)   # 175   ## chgd from 110 2-26-20
+
+        self.XHIGH_SAT_THRESHOLD      = kwargs.get('xhigh_sat_threshold'  ,  120)   # 150
+        self.HIGH_SAT_THRESHOLD       = kwargs.get('high_sat_threshold'   ,   65)   # 150
+        self.LOW_SAT_THRESHOLD        = kwargs.get('low_sat_threshold'    ,   20)   #  20   ## chgd from 110 2-26-20
+
+        self.XHIGH_THRESHOLDING       = kwargs.get('xhigh_thresholding'   , 'cmb_mag_x')
         self.HIGH_THRESHOLDING        = kwargs.get('high_thresholding'    , 'cmb_mag_x')
         self.NORMAL_THRESHOLDING      = kwargs.get('med_thresholding'     , 'cmb_rgb_lvl_sat')
         self.LOW_THRESHOLDING         = kwargs.get('low_thresholding'     , 'cmb_mag_xy')
@@ -89,9 +108,11 @@ class ALFPipeline(object):
         self.slidingWindowBootstrap   = True
         self.firstFrame               = True
         self.RoIAdjustment            = False
+        self.validLaneDetections      = False
+        self.imgThrshldHistory        = []
         self.imgCondHistory           = []
-        self.acceptHistory            = []
-        self.SrcAdjustment_history    = [] 
+        self.imgAcceptHistory         = []
+        self.imgAdjustHistory         = [] 
         self.diffsSrcDynPoints        = []
         self.offctr_history           = []
         self.imgPixelRatio            = []
@@ -101,6 +122,7 @@ class ALFPipeline(object):
         self.imgUndistStats           = self.initImageInfoDict()
         self.imgWarpedStats           = self.initImageInfoDict()
 
+        self.ttlFullReject      = 0
         self.ttlSkipFrameDetect = 0 
         self.ttlRejectedFrames  = 0 
         self.ttlAcceptedFrames  = 0 
@@ -167,11 +189,63 @@ class ALFPipeline(object):
         img_RGB_Avgs = np.round(image.mean(axis=(0,1)),0)
         img_HLS_Avgs = np.round(imgHLS.mean(axis=(0,1)),0)
 
-
         for i,key in enumerate(self.RGB_key):
             imageDict[key].append(img_RGB_Avgs[i])
         for i,key in enumerate(self.HLS_key):
             imageDict[key].append(img_HLS_Avgs[i])
+
+
+    def process_one_frame(self, **kwargs):
+        debug            = kwargs.get('debug'  , True)
+        debug2           = kwargs.get('debug2' , True)
+        debug3           = kwargs.get('debug3' , False)
+        display          = kwargs.get('display', True)
+        read_next        = kwargs.get('read_next', True)
+        size             = kwargs.get('size', (15,7))
+        show             = kwargs.get('show', True)
+        disp_realignment = kwargs.get('disp_realignment', False)
+        
+        if read_next:
+            rc1= self.inVideo.getNextFrame()  
+        else:
+            rc1 = True
+            
+        if rc1:
+            outputImage, disp = self(displayResults = True, debug = True, debug2 = False)
+            self.outVideo.saveFrameToVideo(outputImage, debug = False)        
+            display_one(outputImage, size=(15,7), title = self.frameTitle)
+            winsound.MessageBeep(type=winsound.MB_ICONHAND)
+
+
+    def process_frame_range(self, toFrame, **kwargs):
+        debug            = kwargs.get('debug'  , False)
+        debug2           = kwargs.get('debug2' , False)
+        debug3           = kwargs.get('debug3' , False)
+        display          = kwargs.get('display', False)
+        disp_interval    = kwargs.get('disp_interval', 50)
+        size             = kwargs.get('size', (15,5))
+        show             = kwargs.get('show', True)
+        disp_realignment = kwargs.get('disp_realignment', False)
+        rc1     = True
+        
+        print('From : ', self.inVideo.currFrameNum, ' To:', toFrame)
+        while self.inVideo.currFrameNum < toFrame  and rc1:    
+            rc1 =  self.inVideo.getNextFrame()
+            if rc1:
+                output, disp = self(debug3 = debug3, display_realignment=disp_realignment)
+                self.outVideo.saveFrameToVideo(output, debug = debug)        
+
+            if show and (self.inVideo.currFrameNum % disp_interval == 0):      ##  or (110 <=Pipeline.inVideo.currFrameNum <=160) :
+                
+                display_two(self.prevBestFit, self.imgLanePxls, size = (15,5), title1 = 'Prev best fit (Cyan: Prev fit, Yellow: New proposal)' , 
+                                                                    title2 = 'ImgLanePxls (Cyan: Prev fit, Yellow: New proposal, Fuschia: New Best Fit)' )
+                display_one(output, size= size, title = self.inVideo.frameTitle)        
+                
+        #     if ( 630 < Pipeline.inVideo.currFrameNum <710):
+        #         display_one(output, size= SIZE, title = Pipeline.inVideo.frameTitle)        
+                
+        print('Finshed - Curr frame number :', self.inVideo.currFrameNum)
+
 
 
     def __call__(self, **kwargs ):
@@ -184,12 +258,11 @@ class ALFPipeline(object):
         self.debug4                   = kwargs.get('debug4', False)
         # self.debug3 = self.debug or self.debug2 or self.debug3
         self.displayResults           = kwargs.get('displayResults', False)
+        self.displayRealignment       = kwargs.get('display_realignment'  ,False)
         self.frameTitle               = self.inVideo.frameTitle
-        
-        self.mode                     = kwargs.get('mode'                    , self.mode)
+        self.exit                     = kwargs.get('exit'  , 0)             
+        self.mode                     = kwargs.get('mode'  , self.mode)
         self.slidingWindowBootstrap   = kwargs.get('slidingWindowBootstrap'  , self.slidingWindowBootstrap) 
-        # self.skipFrameDetection       = False
-        self.validDetections          = False
         
         ###----------------------------------------------------------------------------------------------
         ### PIPELINE 
@@ -199,7 +272,7 @@ class ALFPipeline(object):
 
         self.src_points_history.append(self.src_points)
 
-        self.imgWarped, _ , self.Minv = perspectiveTransform(self.imgUndist, self.src_points, self.dst_points, debug = self.debug4)
+        self.imgWarped, self.M , self.Minv = perspectiveTransform(self.imgUndist, self.src_points, self.dst_points, debug = self.debug4)
         self.saveImageStats(self.imgWarped, self.imgWarpedStats)
         
         self.imgRoI             = displayRoILines(self.imgUndist, self.src_points_list, thickness = 2)
@@ -216,16 +289,11 @@ class ALFPipeline(object):
         ###----------------------------------------------------------------------------------------------        
         self.debugInfo_ImageSummaryInfo()
 
-        if self.debug3:
-            self.debugInfo_ImageInfo()
+        # if self.debug3:
+            # self.debugInfo_ImageInfo()
 
         if self.debug:
             self.debugInfo_srcPointsRoI(title= 'Perspective Tx. source points')
-
-        # if self.skipFrameDetection:
-        #     self.build_result_image()
-        #     self.debugInfo_Final()
-        #     return self.resultImage, self.displayInfo
 
         ###----------------------------------------------------------------------------------------------
         ### Apply thresholding and Warping of thresholded images 
@@ -241,21 +309,25 @@ class ALFPipeline(object):
                                                     size = (15,5), debug = self.debug)
         
         self.imgThrshld = outputs[self.thresholdMethod]
-        self.post_threshold = warped_outputs[self.thresholdMethod]
+        self.working_image = warped_outputs[self.thresholdMethod]
+        
+        if self.exit == 1:
+            return self.imgThrshld, None
 
-        # if self.mode == 1:  ### Warped AFTER thresholding
+        ###----------------------------------------------------------------------------------------------
+        ##  if ERODE_DILATE flag is True, erode/dilate thresholded image
+        ###----------------------------------------------------------------------------------------------
+        # if self.+mode == 1:  ### Warped AFTER thresholding
             # self.post_threshold, _, Minv = perspectiveTransform(self.imgThrshld, self.src_points, self.dst_points, debug = self.debug4)
         # else:               ### Warped BEFORE thresholding
             # self.post_threshold = self.imgThrshld
 
-        
-        ###----------------------------------------------------------------------------------------------
-        ##  if ERODE_DILATE flag is True, erode/dilate thresholded image
-        ###----------------------------------------------------------------------------------------------
         # if self.ERODE_DILATE:
             # self.working_image = erodeDilateImage(self.post_threshold , ksize = 3, iters = 3)
         # else:
-        self.working_image = self.post_threshold
+            # self.working_image = self.post_threshold
+        
+        # self.working_image = self.post_threshold
 
 
         ###----------------------------------------------------------------------------------------------
@@ -270,31 +342,36 @@ class ALFPipeline(object):
         ###----------------------------------------------------------------------------------------------
         if self.slidingWindowBootstrap:
             window_search_margin = self.INIT_WINDOW_SRCH_MRGN if self.firstFrame else self.WINDOW_SRCH_MRGN
-            self.findLanePixelsRC, self.out_img, self.histogram, imgPixelRatio = find_lane_pixels(self.working_image, 
-                                                                                self.LeftLane, self.RightLane, 
-                                                                                nwindows        = self.NWINDOWS, 
-                                                                                histWidthRange  = self.HISTOGRAM_WIDTH_RANGE, 
-                                                                                histDepthRange  = self.HISTOGRAM_DEPTH_RANGE, 
-                                                                                window_margin   = window_search_margin, 
-                                                                                debug = self.debug) 
+            reset_search_base    = (self.firstFrame  or self.imgAcceptHistory[-1] < -10) ##  or not (self.validLaneDetections)
+            if self.RoIAdjustment  :
+                reset_search_base = False
+            self.out_img, self.histogram, self.detStats = find_lane_pixels(self.working_image, 
+                                                                           self.LeftLane, self.RightLane, 
+                                                                           nwindows        = self.NWINDOWS, 
+                                                                           histWidthRange  = self.HISTOGRAM_WIDTH_RANGE, 
+                                                                           histDepthRange  = self.HISTOGRAM_DEPTH_RANGE, 
+                                                                           search_margin   = window_search_margin, 
+                                                                           reset_search_base = reset_search_base,
+                                                                           debug = self.debug) 
 
         else:    
-            self.findLanePixelsRC, self.out_img, self.histogram, imgPixelRatio = search_around_poly(self.working_image, 
-                                                                                self.LeftLane, self.RightLane, 
-                                                                                search_margin   = self.POLY_SRCH_MRGN, 
-                                                                                pixel_thr       = self.PIXEL_THRESHOLD,
-                                                                                pixel_ratio_thr = self.PIXEL_RATIO_THRESHOLD,
-                                                                                lane_ratio_thr  = self.LANE_RATIO_THRESHOLD,
-                                                                                debug = self.debug)
+            self.out_img, self.histogram, self.detStats = search_around_poly(self.working_image, 
+                                                                             self.LeftLane, self.RightLane, 
+                                                                             search_margin   = self.POLY_SRCH_MRGN, 
+                                                                             debug = self.debug)
+        self.debugInfo_LaneDetInfo()
+        self.assess_lane_detections()
         
-        self.imgPixelRatio.append(imgPixelRatio)
-
-        self.assess_lane_detection_results()
+        if self.exit == 2:
+            return self.out_img, None        
+        
         ###----------------------------------------------------------------------------------------------
         ### Fit polynomial on found lane pixels 
         ###----------------------------------------------------------------------------------------------
-        self.fit_polynomial_process_v2()
-    
+        self.fit_polynomial_process()
+        self.assess_fitted_polynomials()
+        
+        self.visualizeLaneDetection(display=0, size = (15,5))
 
         if self.displayResults:
             self.displayFittingInfo()            
@@ -314,7 +391,6 @@ class ALFPipeline(object):
         ### All done - build display results if requested 
         ###----------------------------------------------------------------------------------------------        
         self.debugInfo_Final()
-
         
         if self.firstFrame :
             self.firstFrame = False
@@ -322,159 +398,319 @@ class ALFPipeline(object):
         return self.resultImage, self.displayInfo
             
 
-
-
-
-
     ##--------------------------------------------------------------------------------------
     ##
     ##--------------------------------------------------------------------------------------
-    def assess_lane_detection_results(self):
+    def assess_lane_detections(self):
 
-        # if  self.slidingWindowBootstrap or self.RoIAdjustment:
-            # self.fitPolynomials = True
-            # return 
-
-        self.fitPolynomials = self.findLanePixelsRC
+        imgPixelRatio, self.NztoSrchNzRatio, self.NztoImageNzRatio, ttlImageNXPixels, ttlLaneNZPixels = self.detStats
+        self.imgPixelRatio.append(imgPixelRatio)
+        lower_nz_pxl_cnt = round(np.sum(self.working_image[480:,:]) * 100/(self.height*self.width//3),2)
 
         if self.debug:
             print()
-            print('assess_lane_detection_results()')
-            print('-'*20)
-            print(' findLanePixels RC: ' , self.findLanePixelsRC)
+            print('assess_lane_detections()')
+            print('-'*40)
+            print(' Lower image non_zero pixel ratio:  %{:8.2f}'.format(lower_nz_pxl_cnt))
+            print(' (Image NZ pixels to Total Pixels in image)          imgPixelRatio : %{:8.2f} \n'\
+                  ' (Detected NZ Pixels to All pixels in Search Region) NZtoSrNZRatio : %{:8.2f} \n' \
+                  ' (Detected NZ Pixels to All NZ Pixels in image)      NztoTtlNzRatio: %{:8.2f}'.format(
+                      imgPixelRatio , self.NztoSrchNzRatio , self.NztoImageNzRatio ))
+            print()        
 
+        msgs = []
+        image_conditions = []
+        ##------------------------------------------------------------------------------------------
+        ##  Frame / Lane detection Quality checks 
+        ##------------------------------------------------------------------------------------------
         for Lane in [self.LeftLane, self.RightLane]:
             
-            if (Lane.pixelCount < self.PIXEL_THRESHOLD): 
-                print()
-                print('-'*100)
-                print(' {} Lane pixels count under threshold '.format(Lane.name))
-                print(' {} PixelCount: {:7.2f}  <  Count Min Threshold: ({:4d}) '.format(
-                        Lane.name, Lane.pixelCount, self.PIXEL_THRESHOLD))
-                print('-'*100)
-                Lane.fitPolynomials = False
+            if (Lane.pixelCount[-1] < self.LANE_COUNT_THRESHOLD): 
+                image_conditions.append(10)        
+                msgs.append(' ***  (10) {:5s} Lane pixel count under threshold - Pxl Count: {:7.0f} < Count Threshold: ({:4d}) '.format(
+                        Lane.name, Lane.pixelCount[-1], self.LANE_COUNT_THRESHOLD))
+                Lane.goodLaneDetection = False
 
-            elif (Lane.pixelRatio[-1]  < self.LANE_RATIO_THRESHOLD): 
-                print()
-                print('-'*100)
-                print(' {} Lane pixel Ratio under Threshold '.format(Lane.name))
-                print(' {} Pxl Ratio: {:7.2f} < Lane Threshold: ({:4d})'.format(Lane.name, Lane.pixelRatio[-1], self.LANE_RATIO_THRESHOLD))
-                print(' {} Pxl Count: {:7.2f} - Count Threshold: ({:4d})'.format(Lane.name,Lane.pixelCount, self.PIXEL_THRESHOLD))
-                print('-'*100)
-                Lane.fitPolynomials = False
+            elif (Lane.pixelRatio[-1]  < self.LANE_RATIO_LOW_THRESHOLD): 
+                image_conditions.append(11)
+                msgs.append(' ***  (11) {:5s} Lane pixel ratio under threshold - Pxl Ratio: {:7.3f} < Ratio Threshold: ({:7.3f}) '\
+                      ' Pxl Count: {:7.0f} - Count Threshold: ({:4d})'.format(Lane.name, 
+                       Lane.pixelRatio[-1], self.LANE_RATIO_LOW_THRESHOLD, Lane.pixelCount[-1], self.LANE_COUNT_THRESHOLD))
+                Lane.goodLaneDetection = False
+
+            elif (Lane.pixelRatio[-1]  > self.LANE_RATIO_HIGH_THRESHOLD) and \
+                 (self.NztoImageNzRatio < 30): 
+                image_conditions.append(12)
+                msgs.append(' ***  (12) {:5s} Lane pxl ratio > threshold - Pxl Ratio: {:7.3f} > Ratio Threshold: ({:7.3f}) '\
+                      ' Det Nz to Ttl Nz Ratio: ({:7.3f})'.format(Lane.name, 
+                       Lane.pixelRatio[-1], self.LANE_RATIO_HIGH_THRESHOLD, self.NztoImageNzRatio))
+                Lane.goodLaneDetection = False
+         
             else:
-                Lane.fitPolynomials = True
-
-        # if (self.imgPixelRatio[-1]< self.PIXEL_RATIO_THRESHOLD) and (self.imgWarpedStats['Sat'][-1] > self.HIGH_SAT_THRESHOLD):
-        if (self.imgWarpedStats['RGB'][-1]> self.HIGH_RGB_THRESHOLD) and (self.imgWarpedStats['Sat'][-1] > self.HIGH_SAT_THRESHOLD):
-            print('-'*100)
-            print(' High Mean RGB and Saturation on Warped Image: ')
-            print(' imgPixelRatio {:7.2f}  > PIXEL_RATIO_THRESHOLD ({:7.2f})  AND  imgWarpedStats[Sat] {:7.2f}  > HIGH_SAT_THRESHOLD ({:7.2f})'.
-            format(self.imgWarpedStats['RGB'][-1], self.HIGH_RGB_THRESHOLD,self.imgWarpedStats['Sat'][-1] , self.HIGH_SAT_THRESHOLD))
-            print(' left Pxl Ratio: {:7.2f}  or  right Pxl Ratio: {:7.2f}  - Lane Threshold: ({:4d})     imgPixelRatio: {:7.2f} - ImagePxl Thr:({:4d})'.
-                     format( self.LeftLane.pixelRatio[-1], self.RightLane.pixelRatio[-1], self.LANE_RATIO_THRESHOLD, 
-                            self.imgPixelRatio[-1], self.PIXEL_RATIO_THRESHOLD))
-            print(' leftPixelCount: {:7.2f}  or  rightPixelCount: {:7.2f}  -  Count Min Threshold: ({:4d}) '.format(
-                      self.LeftLane.pixelCount, self.RightLane.pixelCount, self.PIXEL_THRESHOLD))
-            print('-'*100)
-            imageFitPolynomials = False
-        else:
-            imageFitPolynomials = True
+                Lane.goodLaneDetection = True
 
 
-        self.fitPolynomials = self.LeftLane.fitPolynomials and  self.RightLane.fitPolynomials and imageFitPolynomials
+        ##------------------------------------------------------------------------------------------
+        ##  Frame Level Quality checks 
+        ##------------------------------------------------------------------------------------------
+
+        self.frameGoodQuality = True
+        self.bothLanesPixelRatio = self.LeftLane.pixelRatio[-1] + self.RightLane.pixelRatio[-1]
+        
+        if self.imgPixelRatio[-1] > self.IMAGE_RATIO_HIGH_THRESHOLD:     ##    self.IMAGE_RATIO_HIGH_THRESHOLD:
+            image_conditions.append(20)
+            msgs.append(' ***  (20) imgPixelRatio:  ratio of non-zero pixels in image {} > image ratio HIGH threshold {}'.
+                        format(self.imgPixelRatio[-1],  self.IMAGE_RATIO_HIGH_THRESHOLD))
+            self.frameGoodQuality = False
+
+        if self.imgPixelRatio[-1] < self.IMAGE_RATIO_LOW_THRESHOLD:
+            image_conditions.append(21)
+            msgs.append(' ***  (21) imgPixelRatio:  ratio of non-zero pixels in image {} < image ratio LOW threshold {}'.
+                        format(self.imgPixelRatio[-1],  self.IMAGE_RATIO_LOW_THRESHOLD))
+
+        # if self.bothLanesPixelRatio > self.IMAGE_RATIO_HIGH_THRESHOLD:
+            # image_condition = 3
+            # cond_msg = ' ***  bothLanesPixelRatio:  Left+Right non-zero pixel ratio > image ratio HIGH threshold.'
+
+        if self.bothLanesPixelRatio < self.IMAGE_RATIO_LOW_THRESHOLD:
+            image_conditions.append(30)
+            msgs.append(' ***  (30) bothLanesPixelRatio:  Left+Right non-zero pixel ratio {} < image ratio LOW threshold {}.'.
+                        format(self.bothLanesPixelRatio, self.IMAGE_RATIO_LOW_THRESHOLD))
+
+        if (lower_nz_pxl_cnt > 45 ):
+            image_conditions.append(40)
+            msgs.append(' ***  (31) Warped image lower 1/3 non-zero pixel count {}  > 45  '.format(lower_nz_pxl_cnt))
+            self.frameGoodQuality = False
+
+        if (self.imgWarpedStats['RGB'][-1]> self.HIGH_RGB_THRESHOLD) and (self.imgWarpedStats['Sat'][-1] > self.XHIGH_SAT_THRESHOLD):
+            image_conditions.append(40)
+            msgs.append(' ***  (40) Warped Image High Mean RGB {} / Mean SAT {}  '.
+                    format(self.imgWarpedStats['RGB'][-1], self.imgWarpedStats['Sat'][-1]))
+            self.frameGoodQuality = False
+
+
+        self.goodLaneDetections = (self.LeftLane.goodLaneDetection and  self.RightLane.goodLaneDetection) 
+
+        self.imgCondHistory.append(image_conditions)
         if self.debug:
-            print(' Lane fitPolynomials :   Left: {}   Right:{}  Image fitPolynomials: {}    final fitPolynomials: {} '.format(
-                self.LeftLane.fitPolynomials, self.RightLane.fitPolynomials, imageFitPolynomials, self.fitPolynomials))
+        # if True:
+            print(' Image conditions:  ', image_conditions)
+            for msg in msgs:
+                print(msg)
+            print()
+            print(' left Pxl Count: {:7.0f}  or  right Pxl Count: {:7.0f} - LANE_COUNT_THRESHOLD  : {:7.0f} '.
+                    format(self.LeftLane.pixelCount[-1], self.RightLane.pixelCount[-1], self.LANE_COUNT_THRESHOLD))
+            print(' left Pxl Ratio: {:7.2f}  or  right Pxl Ratio: {:7.2f} - LANE RATIO LOW THRSHLD: {:7.2f}    HIGH THRSHLD {:7.2f}'.
+                    format(self.LeftLane.pixelRatio[-1], self.RightLane.pixelRatio[-1], 
+                    self.LANE_RATIO_LOW_THRESHOLD, self.LANE_RATIO_HIGH_THRESHOLD))
+            print(' Image NZ pixel ratio (imgPixelRatio)        : {:7.2f} - IMG  RATIO LOW THRSHLD: {:7.2f}    HIGH THRSHLD {:7.2f}'.
+                    format(self.imgPixelRatio[-1], self.IMAGE_RATIO_LOW_THRESHOLD, self.IMAGE_RATIO_HIGH_THRESHOLD))
+            # print('  Left+Right    : %{:7.2f}    imgPixelRatio: %{:7.2f} '.
+                    # format(self.bothLanesPixelRatio, self.imgPixelRatio[-1] ))
+            print(' L+R NZ pixel ratio  (bothLanesPixelRatio)   : {:7.2f} - IMG  RATIO LOW THRSHLD: {:7.2f}    HIGH THRSHLD {:7.2f}'.
+                    format(self.bothLanesPixelRatio, self.IMAGE_RATIO_LOW_THRESHOLD, self.IMAGE_RATIO_HIGH_THRESHOLD))
+            print(' imgWarped stats  RGB:  {:7.2f}   SAT: {:7.2f}    HIGH_RGB_THRSHLD: {:7.2f} '\
+                  '  HIGH_SAT_THRSHLD {:7.2f}    EXTRA HIGH_SAT_THRSHLD {:7.2f}'.
+                    format(self.imgWarpedStats['RGB'][-1], self.imgWarpedStats['Sat'][-1], 
+                    self.HIGH_RGB_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.XHIGH_SAT_THRESHOLD))
+
+        
+        if self.debug:
+            print()
+            print(' Lane Detections Results -    Left: {}    Right: {}    goodLaneDetections: {}    frameGoodQuality: {}'.format(
+                str(self.LeftLane.goodLaneDetection).upper(), str(self.RightLane.goodLaneDetection).upper(), 
+                str(self.goodLaneDetections).upper()        , str(self.frameGoodQuality).upper() ))
 
     ##--------------------------------------------------------------------------------------
     ##
     ##--------------------------------------------------------------------------------------
-    def fit_polynomial_process_v2(self):
-        ## If lane pixel detection was successful, try to fit polynomials over detected pixels 
+    def fit_polynomial_process(self):
 
         for Lane in [self.LeftLane, self.RightLane]:
+            Lane.fit_polynomial(debug  = self.debug)
 
-            if  Lane.fitPolynomials:
 
-                Lane.fit_polynomial(debug  = self.debug)
-                Lane.poly_assess_result = Lane.assessFittedPolynomial(debug = self.debug)
+    ##--------------------------------------------------------------------------------------
+    ##
+    ##--------------------------------------------------------------------------------------
+    def assess_fitted_polynomials(self):
 
+        if self.debug:
+            print()
+            print('assess_fitted_polynomials()')
+            print('-'*40)
+
+        ### Individual lane assessments
+
+        for Lane in [self.LeftLane, self.RightLane]:
+            
+
+            if (self.slidingWindowBootstrap and self.RoIAdjustment):
                 ## Realignment of the perspective transformation window will reuslt in a 
                 ## High RSE Error. We will allow this error rate when it is a result of a 
-                ## RoI realignment. Other wise proceed nornally.
-                if  (self.slidingWindowBootstrap and self.RoIAdjustment):
-                    msg = ' RoIAdjustment performed - Polynomial fit will be accepted \n'
-                    Lane.acceptPolynomial = True
-                    # self.slidingWindowBootstrap  = False
-                    Lane.reset_best_fit(debug = self.debug)
-                else:
-                    Lane.acceptPolynomial = Lane.poly_assess_result 
-                    msg = ' {} Lane acceptPolynomial = {}'.format(Lane.name, Lane.acceptPolynomial)
+                ## RoI realignment. Other wise proceed nornally.                
+                Lane.acceptPolynomial = True
+                Lane.reset_best_fit(debug = self.debug)
+                msg2 = '    {:5s} lane fitted polynomial - RoIAdjustment performed - Polynomial fit will be accepted \n'.format(Lane.name)
 
+            elif (Lane.goodLaneDetection and self.frameGoodQuality):
+                Lane.acceptPolynomial = True
+                # Lane.reset_best_fit(debug = self.debug)
+                msg2 = '    {:5s} lane fitted polynomial - acceptPolynomial: {}   (GoodLaneDetection: {} & frameGoodQuality: {})'.format(
+                    Lane.name, Lane.acceptPolynomial, Lane.goodLaneDetection, self.frameGoodQuality)
+            
+            # elif not (Lane.goodLaneDetection and self.frameGoodQuality):
+            #     Lane.acceptPolynomial = False
+            #     msg2 = '    {:5s} lane fitted polynomial - acceptPolynomial: {}   (GoodLaneDetection: {} & frameGoodQuality: {})'.format(
+            #         Lane.name, Lane.acceptPolynomial, Lane.goodLaneDetection, self.frameGoodQuality)
+            
+            elif Lane.curve_spread_x > (2 * Lane.pixel_spread_x):
+                Lane.acceptPolynomial = False            
+                msg2 = '    {:5s} lane fitted polynomial x spread {}  > 2*PixelSpread {} '.format(
+                    Lane.name, Lane.curve_spread_x, (2 * Lane.pixel_spread_x))
+
+            elif not (Lane.goodLaneDetection):
+                Lane.acceptPolynomial = False            
+                msg2 = '    {:5s} lane fitted polynomial - acceptPolynomial: {}   (GoodLaneDetection: {} & frameGoodQuality: {})'.format(
+                    Lane.name, Lane.acceptPolynomial, Lane.goodLaneDetection, self.frameGoodQuality)
             else:
-                msg = ' {} lane detection failed on frame: {} '.format(Lane.name, self.frameTitle)
-                Lane.acceptPolynomial = False
+                Lane.acceptPolynomial =  True if (Lane.RSE < Lane.RSE_THRESHOLD) else False
+                msg2 = '    {:5s} lane fitted polynomial - acceptPolynomial:  {}'.format(Lane.name, Lane.acceptPolynomial)
 
             if self.debug :
-                print(msg)        
+                print(msg2)        
 
+
+
+        ### Joint Lane assessments
+        if (self.LeftLane.acceptPolynomial ^ self.RightLane.acceptPolynomial) and (self.goodLaneDetections):
+            self.compareLanes()
+
+        for Lane in [self.LeftLane, self.RightLane]:
             if Lane.acceptPolynomial:
                 Lane.acceptFittedPolynomial(debug = self.debug, debug2 = self.debug2)
             else:
                 Lane.rejectFittedPolynomial(debug = self.debug, debug2 = self.debug2)
 
 
-        ### Frame level actions that need to be taken based on
-        ### acceptance or rejection of polynomials 
+        ### Frame level actions that need to be taken based on acceptance or rejection of polynomials 
 
-        self.acceptPolynomial = self.LeftLane.acceptPolynomial and self.RightLane.acceptPolynomial
-        
-        if self.debug:
-            print('\n acceptPolynomial = poly_left ({}) and poly_right({}) = {}'.format(
-                   self.LeftLane.acceptPolynomial, self.RightLane.acceptPolynomial, self.acceptPolynomial)) 
+        self.acceptPolynomials = self.LeftLane.acceptPolynomial and self.RightLane.acceptPolynomial and self.frameGoodQuality
+        fullReject    = not (self.LeftLane.acceptPolynomial or self.RightLane.acceptPolynomial or self.frameGoodQuality)
+        # red_status    = not ((self.LeftLane.acceptPolynomial ^ self.RightLane.acceptPolynomial) ^ self.frameGoodQuality)
+        # yellow_status = not red_status
 
-        if self.acceptPolynomial:
+
+        if self.acceptPolynomials:   ## everything good
             self.ttlAcceptedFrames += 1
             self.ttlRejectedFramesSinceAccepted = 0
             self.ttlAcceptedFramesSinceRejected += 1
-            self.validDetections   = True
-            self.polyRegionColor1 = 'green'
-            self.acceptHistory.append(0)
+            self.validLaneDetections     = True
+            self.polyRegionColor1        = 'green'
             self.slidingWindowBootstrap  = False
-        else:
+            acceptCode = 0
+        
+        elif fullReject:            ## everything bad
+            self.ttlFullReject += 1            
+            self.ttlRejectedFramesSinceAccepted = 0
+            self.ttlAcceptedFramesSinceRejected = 0
+            self.slidingWindowBootstrap  = False
+            self.validLaneDetections     = False
+            self.polyRegionColor1 = 'lightgray'       
+            acceptCode = -40
+        
+        else:     
             self.ttlRejectedFrames += 1
             self.ttlAcceptedFramesSinceRejected = 0 
             self.ttlRejectedFramesSinceAccepted += 1
-            self.slidingWindowBootstrap  = True       
-            self.validDetections  = True
-            self.polyRegionColor1 = 'yellow' 
-            self.acceptHistory.append(-10)
-
-            if self.ttlRejectedFramesSinceAccepted > self.YELLOW_DETECTION_LIMIT:
-                self.slidingWindowBootstrap  = True        
-                self.polyRegionColor1 = 'salmon'       
-                self.acceptHistory.append(-10)
+            self.validLaneDetections  = True
+            # self.slidingWindowBootstrap  = True if self.frameGoodQuality else False
+            #  doesnt work well in YELLOW conditions.
             
-            if self.ttlRejectedFramesSinceAccepted > self.RED_DETECTION_LIMIT:
-                self.slidingWindowBootstrap  = True
-                self.validDetections  = False
-                self.polyRegionColor1 = 'red'       
-                self.acceptHistory.append(-20)
+            
+            ## when ttl rejected frames < 25
+            if self.ttlRejectedFramesSinceAccepted < self.YELLOW_DETECTION_LIMIT:
+                self.slidingWindowBootstrap  = False
+                self.polyRegionColor1       = 'yellow' 
+                acceptCode = -10
+            else:
+                # 
+                self.slidingWindowBootstrap  = True if self.frameGoodQuality else False
+                self.polyRegionColor1       = 'red'      
 
+                if self.ttlRejectedFramesSinceAccepted < self.RED_DETECTION_LIMIT:
+                    # self.polyRegionColor1       = 'red'       
+                    acceptCode = -20
+                else:
+                    # self.validLaneDetections  = False
+                    # self.polyRegionColor1 = 'lightgray'       
+                    # self.polyRegionColor1       = 'red'
+                    acceptCode = -30
+
+            # if not self.frameGoodQuality:
+                # self.slidingWindowBootstrap  = True
+                # self.validLaneDetections  = False
+                # self.polyRegionColor1 = 'lightgray'       
+                # acceptCode = -40
+
+        self.imgAcceptHistory.append(acceptCode)
+  
         ### Display debug info
         if self.debug: 
+            print()
+            for lane in [self.LeftLane, self.RightLane]:
+                if lane.acceptPolynomial:
+                    print('=> {:5s} Lane ACCEPT polynomial - Accepted frames Since Last Rejected: {:4d}'.format(
+                        lane.name, lane.ttlAcceptedFramesSinceRejected))
+                else:
+                    print('=> {:5s} Lane REJECT polynomial - Rejected frames Since Last Detected: {:4d}'.format(
+                        lane.name, lane.ttlRejectedFramesSinceDetected))
+            print()
+            print('=> acceptPolynomials: {}    frameGoodQuality: ({})'.format(
+                    str(self.acceptPolynomials).upper(),  str(self.frameGoodQuality).upper()  )) 
+            print('   slidingWindowBootstrap: {}     validLaneDetections: {}    acceptCode: {}    displayColor: {}   '.format(
+                    self.slidingWindowBootstrap, self.validLaneDetections, acceptCode, self.polyRegionColor1 ))
+            print('   Total Accepted sinceLast Rejected: {:3d}   Rejected since Last Accepted: {:3d} \n'.format(
+                    self.ttlAcceptedFramesSinceRejected, self.ttlRejectedFramesSinceAccepted  ))
+            self.visualizeLaneDetection()
 
-            if self.acceptPolynomial:
-                print('\n => ACCEPT propsed polynomials for frame {:5d}  Accepted frames Since Last Rejected - Left: {:3d}  Right: {:3d} \n'.format(
-                    self.inVideo.currFrameNum, self.LeftLane.ttlAcceptedFramesSinceRejected, self.RightLane.ttlAcceptedFramesSinceRejected))
-            else:
 
-                print('\n => REJECT proposed polynomials for frame {:5d}  Rejected frames Since Last Detected - Left: {:3d}  Right: {:3d} \n'.format(  
-                    self.inVideo.currFrameNum, self.LeftLane.ttlRejectedFramesSinceDetected, self.RightLane.ttlRejectedFramesSinceDetected))
+    def compareLanes(self, **kwargs):
 
-            self.debugInfo_DetectionInfo()
+        left_ckpts  = self.LeftLane.best_linepos if self.LeftLane.acceptPolynomial else self.LeftLane.current_linepos
+        right_ckpts = self.RightLane.best_linepos if self.RightLane.acceptPolynomial else self.RightLane.current_linepos
+        
+        
+        diff = right_ckpts - left_ckpts
+        min_diff = np.round(diff.min(),0)
+        max_diff = np.round(diff.max(),0)  
+        diff_spread = round(max_diff - min_diff,0)
 
+        diff_meters = np.round((np.array(right_ckpts)- np.array(left_ckpts))*self.LeftLane.MX,3)
+        min_diff_meters = np.round(diff_meters.min(),3)
+        max_diff_meters = np.round(diff_meters.max(),3)       
+        diff_spread_meters = round(max_diff_meters - min_diff_meters,3)
+
+        rejectedLane = self.LeftLane if self.RightLane.acceptPolynomial else self.RightLane 
+        acceptedLane = self.RightLane if self.RightLane.acceptPolynomial else self.LeftLane
+        
+        print()
+        print('compareLanes()') 
+        print('                ', self.LeftLane.y_checkpoints)
+        print(' left_ckpts    :', left_ckpts )
+        print(' right_ckpts   :', right_ckpts)
+        print(' diff (pixels) :', diff , 'Min: ', min_diff, ' Max: ', max_diff,  ' spread:', diff_spread)
+        print(' diff (meters) :', diff_meters , 'Min: ', min_diff_meters, ' Max: ', max_diff_meters,  ' spread:', diff_spread_meters)
+
+        if diff_spread < self.PARALLEL_LINES_MARGIN:
+            print()
+            print(' Spread between accepted lane ({}) and rejected lane ({}) is less than {} pixels - rejected lane will be accepted'.format(
+                    acceptedLane.name, rejectedLane.name, self.PARALLEL_LINES_MARGIN))
+            print()
+            rejectedLane.acceptPolynomial = True
+            rejectedLane.reset_best_fit(debug = self.debug)
+
+        return 
 
 
     ##--------------------------------------------------------------------------------------
@@ -483,7 +719,7 @@ class ALFPipeline(object):
     def build_result_image(self, **kwargs):
         disp_start = kwargs.get('start' , self.displayRegionTop)
         disp_end   = kwargs.get('end'   , self.displayRegionBot)
-        beta       = kwargs.get('beta'  , 0.5)
+        beta       = kwargs.get('beta'  , 0.9)
         polyRegionColor1 = kwargs.get('polyRegionColor1', 'green')
 
         min_radius     = min(self.LeftLane.radius_history[-1], self.RightLane.radius_history[-1])
@@ -524,14 +760,23 @@ class ALFPipeline(object):
         
         self.curv_msg = curvatureMsg(self.LeftLane  , self.RightLane, debug = self.debug2)
         self.oc_msg   = offCenterMsg(self.LeftLane  , self.RightLane, self.camera_x, debug = self.debug2)
-        
-        # if self.validDetections:
-        self.resultImage, self.dyn_src_points_list = displayDetectedRegion(self.imgUndist, 
+        thr_msg  = '{:5s} - {:22s}'.format(self.Conditions.upper(), self.thresholdMethod)
+        stat_msg = 'RGB: {:3.0f}  Hue:{:3.0f}  SAT: {:3.0f}'.format(self.imgWarpedStats['RGB'][-1],
+                    self.imgWarpedStats['Hue'][-1], self.imgWarpedStats['Sat'][-1])
+         
+        # if self.validLaneDetections:
+        #     pass
+        # else:
+        #     beta = 0.3
+            
+        if True:
+            self.resultImage, self.dyn_src_points_list = displayDetectedRegion(self.imgUndist, 
                                                                      self.LeftLane.fitted_best , 
                                                                      self.RightLane.fitted_best, 
                                                                      self.Minv, 
                                                                      disp_start = disp_start, 
                                                                      disp_end   = disp_end  ,
+                                                                     alpha = 0.7,
                                                                      beta  = beta , 
                                                                      color = self.polyRegionColor1, 
                                                                      frameTitle = self.frameTitle, 
@@ -540,11 +785,15 @@ class ALFPipeline(object):
             # self.resultImage = np.copy(self.imgUndist)
 
         displayText(self.resultImage, 40, 40, self.frameTitle, fontHeight = 20)
-        if self.validDetections:
+        
+        if self.validLaneDetections:
             displayText(self.resultImage, 40, 80, self.curv_msg  , fontHeight = 20)
             displayText(self.resultImage, 40,120, self.oc_msg    , fontHeight = 20)
         else:
             displayText(self.resultImage, 40, 80, 'Unable to detect lanes' , fontHeight = 20)
+
+        displayText(self.resultImage, 850, 40, thr_msg  , fontHeight = 20)
+        displayText(self.resultImage, 850, 80, stat_msg  , fontHeight = 20)
 
         # displayGuidelines(self.resultImage, draw = 'y');
         return
@@ -574,7 +823,7 @@ class ALFPipeline(object):
         if self.debug:
             # np.set_printoptions(linewidth=195, precision=4, floatmode='fixed', threshold =500, formatter = self.np_format)
             print()
-            print('adjust_RoI_window() - FirstFrame:', self.firstFrame, ' AcceptPolynomial:', self.acceptPolynomial )
+            print('adjust_RoI_window() - FirstFrame:', self.firstFrame, ' AcceptPolynomial:', self.acceptPolynomials )
             print('-'*65)
             print('                 x_base :   Left: {:8.2f}    Right: {:8.2f}  '.format( self.LeftLane.x_base[-1],  self.RightLane.x_base[-1]))
             print('     Image Pixel Ratios :   Left: {:8.2f}    Right: {:8.2f}    Total: {:8.2f}'.format(
@@ -595,27 +844,33 @@ class ALFPipeline(object):
             print('                  diffs :  {} '.format(diffs))
             print()
 
+        print('  Perspective transform source points -  OffCtr Pxls: {}    max_diffs: {}    imgPxlRatio: {}  acceptCode: {}'.format(
+                        off_center_pixels, max_diffs, self.imgPixelRatio[-1], self.imgAcceptHistory[-1]))
 
         ###----------------------------------------------------------------------------------------------
         # if quality of last image threshold is > %80 and we need to run a bootstrap, set up to do so in
         # next video frame
         ###----------------------------------------------------------------------------------------------
-        if  (self.acceptPolynomial) and \
-            ( ( max_diffs > self.OFF_CENTER_ROI_THRESHOLD ) or (self.firstFrame)):
-            # print('  ','-'*95)
-            print()
-            print('    Adjust perspective transform source points -  OffCtr Pxls: {}    max_diffs: {}    imgPxlRatio: {} '.format(off_center_pixels, 
-                    max_diffs, self.imgPixelRatio[0]))
-            print('   ','-'*100)
-            print('    Cur src_points_list :  {} '.format(self.src_points_list))
-            print()
-            print('    New src_points_list :  {} '.format(self.dyn_src_points_list))
-            print('       Prev Left x_base : ', self.LeftLane.x_base[-2], '   Right x_base  :', self.RightLane.x_base[-2])
-            print('       New  Left x_base : ', self.LeftLane.x_base[-1], '   Right x_base  :', self.RightLane.x_base[-1])
-            print()
+        if  (self.acceptPolynomials) and \
+            ( ( max_diffs >= self.OFF_CENTER_ROI_THRESHOLD ) or (self.firstFrame)):
+            # ( ( max_diffs > self.CURRENT_OFFCTR_ROI_THR ) or (self.firstFrame)):
+            print('  Adjust perspective transform source points -  OffCtr Pxls: {}    max_diffs: {}    imgPxlRatio: {} '.format(
+                        off_center_pixels, max_diffs, self.imgPixelRatio[-1]))
 
-            self.debugInfo_srcPointsRoI(title= 'source points prior to realignment')
-            self.debugInfo_newSrcPointsRoI(title= 'source points after realignment')
+            if self.displayRealignment or self.debug:
+                print()
+                print('    Adjust perspective transform source points -  OffCtr Pxls: {}    max_diffs: {}    imgPxlRatio: {} '.format(
+                        off_center_pixels, max_diffs, self.imgPixelRatio[-1]))
+                print('   ','-'*100)
+                print('    Cur src_points_list :  {} '.format(self.src_points_list))
+                print()
+                print('    New src_points_list :  {} '.format(self.dyn_src_points_list))
+                print('       Prev Left x_base : ', self.LeftLane.x_base[-2], '   Right x_base  :', self.RightLane.x_base[-2])
+                print('       New  Left x_base : ', self.LeftLane.x_base[-1], '   Right x_base  :', self.RightLane.x_base[-1])
+                print()
+
+                self.debugInfo_srcPointsRoI(title= 'source points prior to realignment')
+                self.debugInfo_newSrcPointsRoI(title= 'source points after realignment')
 
 
             self.prev_src_points_list = self.src_points_list
@@ -624,33 +879,75 @@ class ALFPipeline(object):
 
             self.slidingWindowBootstrap  = True
             self.RoIAdjustment           = True
-            self.SrcAdjustment_history.append((len(self.offctr_history), self.offctr_history[-1], self.diffsSrcDynPoints[-1]))
-            self.LeftLane.x_base.append( self.dyn_src_points_list[3][0])
-            self.RightLane.x_base.append(self.dyn_src_points_list[2][0])
+            self.imgAdjustHistory.append((len(self.offctr_history), self.offctr_history[-1], self.diffsSrcDynPoints[-1]))
+            # self.LeftLane.x_base.append (self.dyn_src_points_list[3][0])
+            # self.RightLane.x_base.append(self.dyn_src_points_list[2][0])
 
+            self.LeftLane.x_base.append (self.x_dst_left)
+            self.RightLane.x_base.append(self.x_dst_right)
+            # self.LeftLane.next_x_base = self.x_dst_left
+            # self.RightLane.next_x_base = self.x_dst_right
         else:
             self.RoIAdjustment = False
 
+
         return 
+
+
+
+    ##--------------------------------------------------------------------------------------
+    ##
+    ##--------------------------------------------------------------------------------------
+    def visualizeLaneDetection(self, display = 3, size = (24,9)):
+                    
+        self.prevBestFit  = colorLanePixels(self.out_img, self.LeftLane, self.RightLane)
+
+        if self.HISTORY > 1:
+            self.prevBestFit = displayPolynomial(self.prevBestFit, self.LeftLane.fitted_best_history, self.RightLane.fitted_best_history, 
+                                                 iteration = -2,  color = 'aqua')
+            self.prevBestFit = displayPolynomial(self.prevBestFit, self.LeftLane.proposed_curve, self.RightLane.proposed_curve, 
+                                                 iteration = -1,  color = 'yellow')
+
+        # currentFit  = displayPolynomial(prevBestFit, self.LeftLane.fitted_current, self.RightLane.fitted_current, iteration = -1, color = 'yellow')
+
+        self.imgLanePxls = displayPolynomial(self.prevBestFit, self.LeftLane.fitted_best, self.RightLane.fitted_best, color = 'fuchsia', thickness = 2)
+        if display:
+            # print(' y_src_top_left : {}   y_src_top_right: {}   y_src_bot_left: {}   y_src_bot_right: {}'.format(self.dst_points_list))
+                # self.y_src_top, self.y_src_top, self.y_src_bot, self.y_src_bot))  
+            if display in [1,3]:
+                print('      x_src_top_left : {}   x_src_top_right: {}   x_src_bot_left: {}   x_src_bot_right: {}'.format(
+                        self.src_points_list[0], self.src_points_list[1],self.src_points_list[3],self.src_points_list[2]))
+                display_two(self.working_image, self.out_img, size = size, title1 = 'working_image - '+self.frameTitle, 
+                            title2 = 'out_img ')
+            if display in [2,3]:
+                display_two(self.prevBestFit, self.imgLanePxls, size = size, title1 = 'Prev best fit (Cyan: Prev fit, Yellow: New proposal)' , 
+                            title2 = 'ImgLanePxls (Cyan: Prev fit, Yellow: New proposal, Fuschia: New Best Fit)' )
+            print()
+        
+        return 
+
+
 
     ##--------------------------------------------------------------------------------------
     ##
     ##--------------------------------------------------------------------------------------
     def debugInfo_ImageSummaryInfo(self):
-        print('{:25s}- UNDIST  RGB: {:3.0f}  HLS:{:3.0f} -({:3.0f},{:3.0f},{:3.0f})'\
-                '    WARPED RGB: {:3.0f}  HLS: {:3.0f}  Hue:{:3.0f}  Lvl: {:3.0f}  SAT: {:3.0f}'\
-                '    {:5s} - {:10s}  '.format(self.frameTitle,
-                self.imgUndistStats['RGB'][-1], self.imgUndistStats['HLS'][-1], 
-                self.imgUndistStats['Hue'][-1], self.imgUndistStats['Lvl'][-1], self.imgUndistStats['Sat'][-1],
+        print('Frame: {:4d} - {} ms - Image RGB: {:3.0f}  ({:3.0f},{:3.0f},{:3.0f})     '\
+                '    WARPED RGB: {:3.0f}  HLS: {:3.0f}   H: {:3.0f}   L: {:3.0f}   S: {:3.0f}'\
+                '    {:5s} - {:10s}'.format(self.inVideo.currFrameNum, self.inVideo.currPos,
+                self.imgUndistStats['RGB'][-1],  
+                self.imgUndistStats['Red'][-1], self.imgUndistStats['Grn'][-1], self.imgUndistStats['Blu'][-1],
                 self.imgWarpedStats['RGB'][-1], self.imgWarpedStats['HLS'][-1], 
                 self.imgWarpedStats['Hue'][-1], self.imgWarpedStats['Lvl'][-1], self.imgWarpedStats['Sat'][-1],     
                 self.Conditions.upper(), self.thresholdMethod))
         if self.debug:
-            print( ' Thresholds:  HIGH RGB: {}    MED RGB: {}   LOW RGB: {}  VLOW RGB: {}   HIGH SAT: {}   LOW SAT: {} '.
+            print( ' Thresholds:  HIGH RGB: {}    MED RGB: {}   LOW RGB: {}  VLOW RGB: {}   X-HIGH SAT: {}  HIGH SAT: {}   LOW SAT: {} '.
                 format(self.HIGH_RGB_THRESHOLD, self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD, 
-                        self.VLOW_RGB_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.LOW_SAT_THRESHOLD))                
+                       self.VLOW_RGB_THRESHOLD, self.XHIGH_SAT_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.LOW_SAT_THRESHOLD))                
 
-
+    ##--------------------------------------------------------------------------------------
+    ##
+    ##--------------------------------------------------------------------------------------
     def debugInfo_ImageInfo(self, frame = -1):
         print('Frame: {:4.0f} - Mode: {:2d}  imgUndist -  Avgs  RGB: {:6.2f}  HLS:{:6.2f}  Sat: {:6.2f}  Hue: {:6.2f}  Lvl: {:6.2f}'\
                 ' -- {:5s} - {:10s}'.format( self.inVideo.currFrameNum, self.mode,  
@@ -665,55 +962,43 @@ class ALFPipeline(object):
                 self.imgWarpedStats['Lvl'][frame], self.Conditions ,  self.thresholdMethod))
         
         display_multi(self.inVideo.image, self.imgUndist, self.imgWarped, title3 = 'Warped', grid2 = 'minor')
+
+
+    ##--------------------------------------------------------------------------------------
+    ##
+    ##--------------------------------------------------------------------------------------
+    def debugInfo_LaneDetInfo(self):
+        imgPixelRatio, NztoSrchNzRatio, NztoImageNzRatio, ttlImageNZPixels, ttlLaneNZPixels = self.detStats
+        print('  NZ pixels  - in image  : {:8d}   search reg: {:8d}  '\
+              '    Nz to imgPixel Ratio: %{:5.2f}    Nz to SrchRegion Ratio : %{:5.2f}    Nz to ImageNz Ratio: %{:5.2f}' .
+              format(ttlImageNZPixels, ttlLaneNZPixels, imgPixelRatio   , NztoSrchNzRatio, NztoImageNzRatio))
+        print('  Detected Pixel Count L : {:8d}   R         : {:8d}      Detected Pixel Ratio  L: %{:5.2f}    R: %{:5.2f} '.
+              format(self.LeftLane.pixelCount[-1], self.RightLane.pixelCount[-1],
+                     self.LeftLane.pixelRatio[-1], self.RightLane.pixelRatio[-1]))
+
     ##--------------------------------------------------------------------------------------
     ##
     ##--------------------------------------------------------------------------------------
     def debugInfo_ThresholdedImage(self):
-        if self.ERODE_DILATE:
-            display_two(self.imgThrshld, self.post_threshold, title1 = self.thresholdMethod +' '+str(np.sum(self.imgThrshld)), 
-                                                            title2 = 'post_threshold (pre erode/dilate)- '+str(np.sum(self.post_threshold)))
+        # if self.ERODE_DILATE:
+            # display_two(self.imgThrshld, self.post_threshold, title1 = self.thresholdMethod +' '+str(np.sum(self.imgThrshld)), 
+                                                            # title2 = 'post_threshold (pre erode/dilate)- '+str(np.sum(self.post_threshold)))
 
         display_two(self.imgThrshld, self.working_image, title1 = self.thresholdMethod +' '+str(np.sum(self.imgThrshld)), 
-                                                            title2 = 'post_threshold - '+str(np.sum(self.working_image)))
-
-    ##--------------------------------------------------------------------------------------
-    ##
-    ##--------------------------------------------------------------------------------------
-    def debugInfo_DetectionInfo(self, display = True):
-                    
-        prevBestFit  = colorLanePixels(self.out_img, self.LeftLane, self.RightLane)
-
-        if self.HISTORY > 1:
-            prevBestFit = displayPolynomial(prevBestFit, self.LeftLane.fitted_best_history, self.RightLane.fitted_best_history, iteration = -2, 
-                                            color = 'aqua')
-            prevBestFit = displayPolynomial(prevBestFit, self.LeftLane.fitted_current, self.RightLane.fitted_current, iteration = -1, color = 'yellow')
-
-        currentFit  = displayPolynomial(prevBestFit, self.LeftLane.fitted_current, self.RightLane.fitted_current, iteration = -1, color = 'yellow')
-
-        currentFit = displayPolynomial(currentFit, self.LeftLane.fitted_best, self.RightLane.fitted_best, color = 'red')
-        if display:
-            print(' x_src_top_left : {}   x_src_top_right: {}   x_src_bot_left: {}   x_src_bot_right: {}'.format(
-                self.src_points_list[0], self.src_points_list[1],self.src_points_list[3],self.src_points_list[2]))
-            # print(' y_src_top_left : {}   y_src_top_right: {}   y_src_bot_left: {}   y_src_bot_right: {}'.format(self.dst_points_list))
-                # self.y_src_top, self.y_src_top, self.y_src_bot, self.y_src_bot))  
-            display_two(self.working_image, self.out_img, title1 = 'working_image - '+self.frameTitle, 
-                                                          title2 = 'out_img ')
-            display_two(prevBestFit, currentFit  , title1 = 'Prev best fit (Black: Prev fit, Yellow: New proposal)' , 
-                                                   title2 = 'ImgLanePxls (Black: Prev fit, Yellow: New fit, Red: Best Fit)' )
-            print()
-        
-        return currentFit
+                                                            title2 = 'After thresholding - '+str(np.sum(self.working_image)))
 
     ##--------------------------------------------------------------------------------------
     ##
     ##--------------------------------------------------------------------------------------
     def debugInfo_srcPointsRoI(self, size = (24,9), title = None ):
         print()
-        print('     x_top_disp : {:<13d}     x_src_center : {:<13d}      x_bot_disp : {:<4d} '.format(self.x_top_disp, self.x_src_center, self.x_bot_disp))
-        print(' x_src_top_left : {:12s}   x_src_top_right : {:12s}   x_src_bot_left : {:12s}   x_src_bot_right : {:12s}'.format(
-                str(self.src_points_list[0]), str(self.src_points_list[1]), str(self.src_points_list[3]), str(self.src_points_list[2])))
-        print(' y_src_top_left : {:12s}   y_src_top_right : {:12s}   y_src_bot_left : {:12s}   y_src_bot_right : {:12s}'.format(
-                str(self.dst_points_list[0]), str(self.dst_points_list[1]), str(self.dst_points_list[3]), str(self.dst_points_list[2])))  
+        print('   x_top_disp     : {:<13d}  x_src_center    : {:<13d}  x_bot_disp     : {:<4d} '.format(
+                  self.x_top_disp, self.x_src_center, self.x_bot_disp))
+        print('   x_src_top_left : {:12s}   x_src_top_right : {:12s}   x_src_bot_left : {:12s}   x_src_bot_right : {:12s}'.format(
+                  str(self.src_points_list[0]), str(self.src_points_list[1]), str(self.src_points_list[3]), str(self.src_points_list[2])))
+        print('   y_src_top_left : {:12s}   y_src_top_right : {:12s}   y_src_bot_left : {:12s}   y_src_bot_right : {:12s}'.format(
+                  str(self.dst_points_list[0]), str(self.dst_points_list[1]), str(self.dst_points_list[3]), str(self.dst_points_list[2])))  
+        
         display_two(self.imgRoI  , self.imgRoIWarped, title1 = title , grid1 = 'minor',
                                             title2 = title + ' - warped', grid2 = 'major', size = size)
         print()
@@ -726,10 +1011,23 @@ class ALFPipeline(object):
         imgRoIWarped, _, _ = perspectiveTransform(imgRoI   , self.dyn_src_points      , self.dst_points)
         imgRoIWarped       = displayRoILines(imgRoIWarped  , self.dst_points_list     , thickness = 2, color = 'yellow')
         
-        display_two(imgRoI  , imgRoIWarped  , title1 = title , grid1 = 'minor',
-                                              title2 = title+' - Warped' , grid2 = 'major', size = size)
-        
+        display_two(imgRoI  , imgRoIWarped   , title1 = title , grid1 = 'minor',
+                                               title2 = title+' - Warped' , grid2 = 'major', size = size)
+
         return imgRoI, imgRoIWarped 
+
+
+    def debugInfo_DetectionTransform(self):
+        self.visualizeLaneDetection(display=0)
+
+        # imgWarped, _, _ = perspectiveTransform(imgUnwarped   , self.dyn_src_points      , self.dst_points)
+        imgWarped = cv2.warpPerspective(self.imgLanePxls, self.Minv, self.imgLanePxls.shape[1::-1], flags=cv2.INTER_LINEAR)
+        display_two(self.imgLanePxls, imgWarped, title1 = 'Detection prewarped' , grid1 = 'minor',
+                                                 title2 = ' Detection - Warped' , grid2 = 'major', size = (24,9))
+        
+        return  
+
+
 
     ##--------------------------------------------------------------------------------------
     ##
@@ -754,7 +1052,7 @@ class ALFPipeline(object):
 
             if debug:
                 print(' Left lane MR fit           : ', self.LeftLane.curr_fit , '    Right lane MR fit     : ', self.RightLane.curr_fit)
-                print(' Left lane MR best fit      : ', self.LeftLane.best_fit    , '    Right lane MR best fit: ', self.RightLane.best_fit)
+                print(' Left lane MR best fit      : ', self.LeftLane.best_fit , '    Right lane MR best fit: ', self.RightLane.best_fit)
                 print(' Left radius @ y =  10   : '+str(self.LeftLane.get_radius(10)) +" m   Right radius: "+str(self.RightLane.get_radius(10))+" m")
                 print(' Left radius @ y = 700   : '+str(self.LeftLane.get_radius(700))+" m   Right radius: "+str(self.RightLane.get_radius(700))+" m")
                 print(' Curvature message : ', curv_msg)
@@ -769,14 +1067,12 @@ class ALFPipeline(object):
             displayText(result_1, 40,120, self.oc_msg, fontHeight = 20)
             # displayGuidelines(result_1, draw = 'y');
 
-
             ###----------------------------------------------------------------------------------------------
             ###  undistorted color image & perpective transformed image -- With RoI line display
             ###----------------------------------------------------------------------------------------------
-            
             # imgRoI, imgRoIWarped = self.debugInfo_srcPointsRoI(display = False, title= 'Perspec. Tx. source points')            
-            imgLanePxls = self.debugInfo_DetectionInfo(display = False)
-
+            # imgLanePxls = self.visualizeLaneDetection(display = False)
+             
             ###----------------------------------------------------------------------------------------------
             ## Certain operations are not performed based on the processing mode selected
             ##  Generate images for skipped operations for display purposes for display purposes
@@ -797,7 +1093,7 @@ class ALFPipeline(object):
                 self.imgThrshld  = output2[self.thresholdMethod]
                 self.imgThrshldWarped, _, _  = perspectiveTransform(self.imgThrshld, self.src_points, self.dst_points, debug = debug4) 
                 imgWarpedThrshld = self.working_image
-                
+             
             self.displayInfo = PlotDisplay(6,2)
             self.displayInfo.addPlot(self.image       , title = 'original frame - '+self.frameTitle)
             self.displayInfo.addPlot(self.imgUndist   , title = 'imgUndist - Undistorted Image')
@@ -811,7 +1107,7 @@ class ALFPipeline(object):
             self.displayInfo.addPlot(imgThrshldWarped, title = 'imgThrshldWarped - Img Thresholded ---> Warped (Mode 1)')
             self.displayInfo.addPlot(self.imgWarpedThrshld, title = 'imgWarpedThrshld - Img Warped ---> Thresholded (Mode 2)')
             
-            self.displayInfo.addPlot(imgLanePxls      , title = 'ImgLanePxls (Black: Prev fit, Yellow: New fit, Red: Best Fit)' )
+            self.displayInfo.addPlot(self.imgLanePxls , title = 'ImgLanePxls (Black: Prev fit, Yellow: New fit, Red: Best Fit)' )
             self.displayInfo.addPlot(self.histogram   , title = 'Histogram of activated pixels', type = 'plot' )
             
             self.displayInfo.addPlot(result_1         , title = 'result_1 : Using LAST fit')
@@ -834,39 +1130,52 @@ class ALFPipeline(object):
         print('Display fitting info for ', self.frameTitle)
         print('='*70)
 
-        # self.debugInfo_DetectionInfo()
         print()
-        print('Proposed Polynomial:')
+        print('Proposed Polynomial      left :  {}    right : {} '.format(self.LeftLane.curr_fit, self.RightLane.curr_fit))
+        print('Best Fit Polynomial      left :  {}    right : {} '.format(self.LeftLane.best_fit, self.RightLane.best_fit))
+        print('Diff(proposed,best_fit)  left :  {}    right : {} '.format( self.LeftLane.best_fit-self.LeftLane.curr_fit, 
+                                                                                self.RightLane.best_fit-self.RightLane.curr_fit))
+        print('RSE(Proposed,best fit):  left :  {:<30.3f}    right : {:<30.3f} '.format(self.LeftLane.RSE ,self.RightLane.RSE ))
+        print()
+
+
+        # print()
+        # print('Proposed Polynomial:')
+        # print('-'*40)
+        # print('left      : {}    right     : {} '.format(self.LeftLane.curr_fit, self.RightLane.curr_fit))
+
+        # if len(self.LeftLane.proposed_fit_history) > 1:
+        print()
+        print('Best Fit Polynomials:')
         print('-'*40)
-        print('left      : {}    right     : {} '.format(self.LeftLane.curr_fit, self.RightLane.curr_fit))
 
-        if len(self.LeftLane.curr_fit_history) > 0:
-            print()
-            print('Current Best Fit Polynomial:')
-            print('-'*40)
-            print('left      : {}    right     : {} '.format(self.LeftLane.best_fit, self.RightLane.best_fit))
+        for idx in range(-1, -min(len(self.LeftLane.best_fit_history), self.HISTORY+1) , -1):
+            ls, rs = self.LeftLane.best_fit_history[idx], self.RightLane.best_fit_history[idx]
+            print('left[{:2d}]    : {}    right[{:2d}]     : {} '.format(idx,ls, idx,rs))
 
-            print()
-            print('Diff b/w proposed and best_fit polynomial ')
-            print('-'*40)
-            print('left      : {}    right     : {} '.format( self.LeftLane.best_fit-self.LeftLane.curr_fit, 
-                                                            self.RightLane.best_fit-self.RightLane.curr_fit)    )
-            print()
-            print('Proposed RSE with best fit - self.LeftLane: {}   RLane :  {} '.format(self.LeftLane.RSE ,self.RightLane.RSE ))
-            print()
-            # print('Best RSE Hist LLane : ',  self.LeftLane.RSE_history[-15:])
-            # print('Best RSE Hist RLane : ', self.RightLane.RSE_history[-15:])
-            # print('Best fit RSE Hist LeftLane  : ', ['{:8.3f}'.format(i) for i in self.LeftLane.RSE_history])
-            # print('Best fit RSE Hist RightLane : ', ['{:8.3f}'.format(i) for i in self.RightLane.RSE_history])
+        #     print()
+        #     print('Diff b/w proposed and best_fit polynomial ')
+        #     print('-'*40)
+        #     print('left      : {}    right     : {} '.format( self.LeftLane.best_fit-self.LeftLane.curr_fit, 
+        #                                                     self.RightLane.best_fit-self.RightLane.curr_fit)    )
+        #     print()
+        #     print('Proposed RSE with best fit - self.LeftLane: {}   RLane :  {} '.format(self.LeftLane.RSE ,self.RightLane.RSE ))
+        #     print()
+        #
+        #     print('Best RSE Hist LLane : ',  self.LeftLane.RSE_history[-15:])
+        #     print('Best RSE Hist RLane : ', self.RightLane.RSE_history[-15:])
+        #     print('Best fit RSE Hist LeftLane  : ', ['{:8.3f}'.format(i) for i in self.LeftLane.RSE_history])
+        #     print('Best fit RSE Hist RightLane : ', ['{:8.3f}'.format(i) for i in self.RightLane.RSE_history])
             
         print()
         print('-'*40)
-        print('Previously Accepted Fit Polynomials:')
+        print('Previously proposed Polynomials:')
         print('-'*40)
-        i = 0
-        for ls, rs in zip(reversed(self.LeftLane.curr_fit_history), reversed(self.RightLane.curr_fit_history)):
-            i -= 1
-            print('left[{:2d}]    : {}    right[{:2d}]     : {} '.format(i,ls, i,rs))
+        
+        for idx in range(-1, -min(len(self.LeftLane.proposed_fit_history), self.HISTORY+1) , -1):
+            ls, rs = self.LeftLane.proposed_fit_history[idx], self.RightLane.proposed_fit_history[idx]
+            print('left[{:2d}]    : {}    right[{:2d}]     : {} '.format(idx,ls, idx,rs))
+        
         print()
         print('RSE History - Left  : ',  self.LeftLane.RSE_history[-15:])
         print('RSE History - Right : ', self.RightLane.RSE_history[-15:])
@@ -882,19 +1191,18 @@ class ALFPipeline(object):
         ###--------------------------------------------------------------------------------------
         print()
         print('-'*40)    
-        print('Lane Radius from latest proposed fit:')
+        print('Lane Radius from proposed fit:')
         print('-'*40)
         ls = self.LeftLane.current_radius
         rs = self.RightLane.current_radius
         diff = np.round(np.array(rs)- np.array(ls),3)
         avg  = np.round((np.array(rs) + np.array(ls))/2,3)
-        print('Left   Y   : ', self.LeftLane.y_checkpoints)
-        print('left       : ',ls, '  Avg:', np.round(np.mean(ls),3))
-        print('Right  Y   : ', self.RightLane.y_checkpoints)
-        print('right      : ',rs, '  Avg:', np.round(np.mean(rs),3))
+        print('       Y   : ', self.LeftLane.y_checkpoints)
+        print('left       : ',ls  , '  Avg:', np.round(np.mean(ls),3))
+        print('right      : ',rs  , '  Avg:', np.round(np.mean(rs),3))
         print()
-        print('avg        : ',avg)
-        print('diff       : ',diff, '  Max:', diff[0:5].max())
+        print('avg        : ',avg , '  Avg:', np.round(np.mean(avg),3))
+        print('diff       : ',diff, '  Max:', diff.max())
 
         if (self.HISTORY > 1)  and  len(self.LeftLane.best_fit_history) > 0:
             print()
@@ -904,13 +1212,12 @@ class ALFPipeline(object):
             rs = self.RightLane.best_radius
             diff = np.round(np.array(rs)- np.array(ls),3)
             avg  = np.round((np.array(rs) + np.array(ls))/2,3)
-            print('Left   Y  : ', self.LeftLane.y_checkpoints)
-            print('left      : ', ls, '  Avg:', np.round(np.mean(ls),3))
-            print('Right  Y  : ', self.RightLane.y_checkpoints)
-            print('right     : ', rs, '  Avg:', np.round(np.mean(rs),3))
+            print('       Y  : ', self.LeftLane.y_checkpoints)
+            print('left      : ', ls  , '  Avg:', np.round(np.mean(ls),3))
+            print('right     : ', rs  , '  Avg:', np.round(np.mean(rs),3))
             print()
-            print('avg       : ', avg)
-            print('diff      : ', diff, '  Max:', diff[0:5].max())
+            print('avg       : ', avg , '  Avg:', np.round(np.mean(avg),3))
+            print('diff      : ', diff, '  Max:', diff.max())
         
         print()
         print('Hist LLane : ', [round(i,3) for i in self.LeftLane.radius_history[-10:]] )
@@ -933,9 +1240,8 @@ class ALFPipeline(object):
         rs = self.RightLane.current_slope
         diff = np.round(np.array(rs)- np.array(ls),3)
         avg  = np.round((np.array(rs) + np.array(ls))/2,3)
-        print('Left   Y  : ', self.LeftLane.y_checkpoints)
+        print('       Y  : ', self.LeftLane.y_checkpoints)
         print('left      : ',ls  , ' Avg:', np.round(np.mean(ls),3))
-        print('Right  Y  : ', self.RightLane.y_checkpoints)
         print('right     : ',rs  , ' Avg:', np.round(np.mean(rs),3))
         print()
         print('avg       : ',avg)
@@ -949,9 +1255,8 @@ class ALFPipeline(object):
             rs = self.RightLane.best_slope
             diff = np.round(np.array(rs)- np.array(ls),3)
             avg  = np.round((np.array(rs) + np.array(ls))/2,3)
-            print('Left   Y  : ', self.LeftLane.y_checkpoints)
+            print('       Y  : ', self.LeftLane.y_checkpoints)
             print('left      : ',ls  , ' Avg:', np.round(np.mean(ls),3))
-            print('Right  Y  : ', self.RightLane.y_checkpoints)
             print('right     : ',rs  , ' Avg:', np.round(np.mean(rs),3))
             print()
             print('avg       : ',avg)
@@ -967,37 +1272,49 @@ class ALFPipeline(object):
         ###--------------------------------------------------------------------------------------
         print()
         print('-'*40)
-        print('Line X Position from latest proposed fit:')
+        print('Line X Position - PROPOSED FIT:')
         print('-'*40)
         ls = self.LeftLane.current_linepos
         rs = self.RightLane.current_linepos
+        ls_min =  ls.min()
+        ls_max =  ls.max()
+        rs_min =  rs.min()
+        rs_max =  rs.max()
         diff_pxl = np.round( np.array(rs)- np.array(ls),3)
+        diff_pxl_min =  diff_pxl.min()
+        diff_pxl_max =  diff_pxl.max()
         diff_mtr = np.round((np.array(rs)- np.array(ls))*self.LeftLane.MX,3)
-        print('- Curr_linepos')
-        print('Left   Y : ', self.LeftLane.y_checkpoints)
-        print('left   X : ',ls, ' Min:', np.round(ls.min(),3) , ' Max: ',np.round(ls.max(),3))
-        print('Right  Y : ', self.RightLane.y_checkpoints)
-        print('right  X : ',rs, ' Min:', np.round(rs.min(),3) , ' Max: ',np.round(rs.max(),3))
-        print()
-        print('diff pxl : ', diff_pxl)
-        print('diff mtr : ', diff_mtr, ' Min: {}  Max: {}'.format( diff_mtr[0:5].min(), diff_mtr[0:5].max()))
+        diff_mtr_min =  diff_mtr.min()
+        diff_mtr_max =  diff_mtr.max()
+        print('        Y : {}'.format(self.LeftLane.y_checkpoints))
+        print(' Left   X : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(ls, ls_min, ls_max, ls_max - ls_min))
+        print(' Right  X : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(rs, rs_min, rs_max, rs_max - rs_min))
+        print('\n diff pxl : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(diff_pxl, diff_pxl_min, diff_pxl_max, diff_pxl_max - diff_pxl_min))
+        print(' diff mtr : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(diff_mtr, diff_mtr_min, diff_mtr_max, diff_mtr_max - diff_mtr_min))
 
 
         if len(self.LeftLane.best_fit_history) > 0:
             print()
-            print('Line X Position from best fit:')
+            print('-'*40)
+            print('Line X Position - BEST FIT:')
             print('-'*40)
             ls = self.LeftLane.best_linepos
             rs = self.RightLane.best_linepos
+            ls_min =  ls.min()
+            ls_max =  ls.max()
+            rs_min =  rs.min()
+            rs_max =  rs.max()
             diff_pxl = np.round( np.array(rs)- np.array(ls),3)
+            diff_pxl_min =  diff_pxl.min()
+            diff_pxl_max =  diff_pxl.max()
             diff_mtr = np.round((np.array(rs)- np.array(ls))*self.LeftLane.MX,3)
-            print('left   Y : ', self.LeftLane.y_checkpoints)
-            print('left   X : ',ls , ' Min:', np.round(ls.min(),3) , ' Max: ',np.round(ls.max(),3))
-            print('right  Y : ', self.LeftLane.y_checkpoints)
-            print('right  X : ',rs , ' Min:', np.round(rs.min(),3) , ' Max: ',np.round(rs.max(),3))
-            print()
-            print('diff pxl : ', diff_pxl)
-            print('diff mtr : ', diff_mtr, ' Min: {}  Max: {}'.format( diff_mtr[0:5].min(), diff_mtr[0:5].max()))
+            diff_mtr_min =  diff_mtr.min()
+            diff_mtr_max =  diff_mtr.max()
+            print('        Y : {}'.format(self.LeftLane.y_checkpoints))
+            print(' Left   X : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(ls, ls_min, ls_max, ls_max - ls_min))
+            print(' Right  X : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(rs, rs_min, rs_max, rs_max - rs_min))
+            print('\n diff pxl : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(diff_pxl, diff_pxl_min, diff_pxl_max, diff_pxl_max - diff_pxl_min))
+            print(' diff mtr : {}  Min: {:8.3f}  Max: {:8.3f}  spread{:8.3f}'.format(diff_mtr, diff_mtr_min, diff_mtr_max, diff_mtr_max - diff_mtr_min))
         
         print()
         print('-'*40)
@@ -1079,20 +1396,20 @@ class ALFPipeline(object):
         max_x = max(self.imgUndistStats['RGB'])
         len_x = len(self.imgUndistStats['RGB'])
         # ax.plot(self.offctr_history    , label = 'Off Center') ### ,  color=SCORE_COLORS[score_key])
-        ax.plot(self.imgPixelRatio     , label = 'Pixel Rto')
+        ax.plot(self.imgPixelRatio     ,color='brown', label = 'Pixel Rto')
         ax.plot(self.imgUndistStats['RGB'] , label = 'Undist RGB Mean')
    
-        ax.plot(np.array(self.acceptHistory), label = 'Polynom Acpt/Rjct')
-        ax.plot(np.array(self.imgCondHistory), label = 'ImgCondition')
-        ax.set_title('Plot 1 - Pxl Thrshld: {:3d} OffCt Thrshld: {:3d}'.format( self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
+        ax.plot(np.array(self.imgAcceptHistory), label = 'Polynom Acpt/Rjct')
+        ax.plot(np.array(self.imgThrshldHistory), label = 'ImgCondition')
+        ax.set_title('Plot 1 - Pxl Thrshld: {:4.2f} OffCt Thrshld: {:3d}'.format( self.IMAGE_RATIO_HIGH_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
         plt.hlines( self.HIGH_RGB_THRESHOLD      , 0, len_x, color='red' , alpha=0.5, linestyles='dashed', linewidth=1, label = 'HI RGB')    
         plt.hlines( self.MED_RGB_THRESHOLD       , 0, len_x, color='green' , alpha=0.5, linestyles='dashed', linewidth=1, label = 'MED RGB')    
         plt.hlines( self.LOW_RGB_THRESHOLD       , 0, len_x, color='yellow' , alpha=0.5, linestyles='dashed', linewidth=1, label = 'LOW RGB')    
-        plt.hlines( self.PIXEL_RATIO_THRESHOLD   , 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1, label='PxlRatioThr')    
-        plt.hlines( self.OFF_CENTER_ROI_THRESHOLD, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1, label='OffCtrRoIThr' )    
-        plt.hlines(-self.OFF_CENTER_ROI_THRESHOLD, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1)    
+        plt.hlines( self.IMAGE_RATIO_HIGH_THRESHOLD, 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1, label='PxlRatioThr')    
+        plt.hlines( self.CURRENT_OFFCTR_ROI_THR, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1, label='OffCtrRoIThr' )    
+        plt.hlines(-self.CURRENT_OFFCTR_ROI_THR, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1)    
         
-        for (x,_,_) in self.SrcAdjustment_history:
+        for (x,_,_) in self.imgAdjustHistory:
             ax.plot(x,-40, 'bo') 
         leg = plt.legend(loc=legend,frameon=True, fontsize = 12, markerscale = 6)
         leg.set_title('Legend',prop={'size':11})
@@ -1106,39 +1423,37 @@ class ALFPipeline(object):
         len_x = len(self.imgUndistStats['RGB'])
         ax.plot(Lane.pixelRatio, label = 'Pixel Rto')
         ax.plot(np.array(Lane.RSE_history), label = 'RSE Error')
-        ax.plot(np.array(self.acceptHistory), label = 'Polynom Acpt/Rjct')
+        ax.plot(np.array(self.imgAcceptHistory), label = 'Polynom Acpt/Rjct')
         
-
+        plt.axhline( -20, 0, 1, color='black', alpha=0.9, ls='dotted', lw=1)  
         plt.hlines( 80 , 0, len_x, color='green' , alpha=0.8, linestyles='dashed', linewidth=1, label = '<80>')    
         plt.hlines( 50 , 0, len_x, color='blue'  , alpha=0.8, linestyles='dashed', linewidth=1, label = '<50>')    
         plt.hlines( 15 , 0, len_x, color='maroon', alpha=0.8, linestyles='dashed', linewidth=1, label = '<15>')    
-        # plt.hlines( self.OFF_CENTER_ROI_THRESHOLD, 0, len_x, color='black', alpha=1.0, linestyles='dashed', linewidth=1)    
-        # plt.hlines(-self.OFF_CENTER_ROI_THRESHOLD, 0, len_x, color='black', alpha=1.0, linestyles='dashed', linewidth=1)    
-        
-        for (x,_,_) in self.SrcAdjustment_history:
+        # plt.hlines( self.CURRENT_OFFCTR_ROI_THR, 0, len_x, color='black', alpha=1.0, linestyles='dashed', linewidth=1)    
+        # plt.hlines(-self.CURRENT_OFFCTR_ROI_THR, 0, len_x, color='black', alpha=1.0, linestyles='dashed', linewidth=1)    
+
+        for (x,_,_) in self.imgAdjustHistory:
             ax.plot(x,-20, 'bo') 
         plt.ylim(-25, max_x + 5)
 
         ax.set_title(' Plot 2 - '+Lane.name+ ' Lane - Pixel Threshld: {:3d}       OffCtr Thrshld: {:3d}'.format( 
-                     self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
+                     self.IMAGE_RATIO_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
         leg = plt.legend(loc=legend,frameon=True, fontsize = 12,markerscale = 6)
         leg.set_title('Legend',prop={'size':11})
                                         
 
 
-    def plot_3(self, legend = 'best', size=(15,7)):
+    def plot_3(self, legend = 'best', size=(15,7), pxlthr = False):
         plt.figure(figsize=size)
         ax = plt.gca()
         len_x = len(self.imgUndistStats['RGB'])
 
-        ax.plot(self.imgWarpedStats['Hue'], color='r', label='Hue (W)')
+        ax.plot(self.imgWarpedStats['Hue'], color='r', label='Hue (Warped)')
         ax.plot(self.imgWarpedStats['Sat'], color='b', label='Sat (Warped)')
-        ax.plot(self.imgWarpedStats['Lvl'], color='g', label='Lvl (Warped')
-        ax.plot(self.imgWarpedStats['RGB'], color='darkorange', label='RGB (Warped)')
-
-        ax.plot(self.imgUndistStats['Sat'], color='darkblue', alpha = 0.5, label='Sat')
-        ax.plot(self.imgUndistStats['RGB'], color='darkorange', alpha = 0.5,   label='RGB ')
-
+        ax.plot(self.imgWarpedStats['Lvl'], color='g', label='Lvl/RGB (Warped)')
+        # ax.plot(self.imgWarpedStats['RGB'], color='darkorange', label='RGB (Warped)')
+        # ax.plot(self.imgUndistStats['Sat'], color='darkblue', alpha = 0.5, label='Sat')
+        # ax.plot(self.imgUndistStats['RGB'], color='darkorange', alpha = 0.5,   label='RGB ')
         # ax.plot(self.imgUndistStats['Red'], color='r', label='Red ')
         # ax.plot(self.imgUndistStats['Grn'], color='g', label='Grn ')
         # ax.plot(self.imgUndistStats['Blu'], color='b', label='Blu ')
@@ -1147,9 +1462,10 @@ class ALFPipeline(object):
         # ax.plot(self.imgWarpedStats['Grn'], color='g', label='Grn (Warped)', linestyle='dashed')
         # ax.plot(self.imgWarpedStats['Blu'], color='b', label='Blu (Warped)', linestyle='dashed')
         # ax.plot(self.imgWarpedStats['Hue'], color='r', label='Hue (Warped)', linestyle='dashed')
-        
-        ax.plot(np.array(self.imgCondHistory), label = 'Normal/Dark')
-        ax.plot(self.imgPixelRatio, color='sienna', label = 'Pixel Rto')
+        plt.axhline( -20, 0, 1, color='black', alpha=0.9, ls='dotted', lw=1)  
+        ax.plot(np.array(self.imgThrshldHistory), label = 'Normal/Dark')
+        if pxlthr:
+            ax.plot(self.imgPixelRatio, color='sienna', label = 'Pixel Rto')
 
         # plt.hlines( 180      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = '(180)')    
         # plt.hlines( 150      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = '(150)')    
@@ -1159,96 +1475,122 @@ class ALFPipeline(object):
                     label = 'Med RGB '+str(self.MED_RGB_THRESHOLD))    
         plt.hlines( self.LOW_RGB_THRESHOLD    , 0, len_x, color='darkgreen' , alpha=0.5, linestyles='dashed', linewidth=1,
                     label = 'Low RGB '+str(self.LOW_RGB_THRESHOLD))    
-        plt.hlines( self.PIXEL_RATIO_THRESHOLD, 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1)    
-        ax.set_title('Plot 3 - Image RGB Avgs - Pxl Thrshld: {:3d} OffCt Thrshld: {:3d}'.format( self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
-
-        for (x,_,_) in self.SrcAdjustment_history:
+        plt.hlines( self.IMAGE_RATIO_HIGH_THRESHOLD, 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1)    
+        
+        plt.axhspan(self.MED_RGB_THRESHOLD, self.LOW_RGB_THRESHOLD,facecolor='g', alpha = 0.5)
+        plt.axhspan(self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD,facecolor='y', alpha = 0.5)
+        plt.axhspan(self.VLOW_RGB_THRESHOLD, 0 , facecolor='mistyrose', alpha = 0.5)
+        
+        ax.minorticks_on()        
+        for (x,_,_) in self.imgAdjustHistory:
             ax.plot(x,-20, 'bo') 
+
         leg = plt.legend(loc=legend,frameon=True, fontsize = 12, markerscale = 6)
         leg.set_title('Legend',prop={'size':11})
+        ax.set_title('Plot 3 - WARPED Image RGB Avgs - Pxl Thrshld: {:4.2f} OffCt Thrshld: {:3d}'.format( 
+                     self.IMAGE_RATIO_HIGH_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
 
-    def plot_4U(self, legend = 'best', size=(15,7), pxlthr=False):
+
+    def plot_4U(self, legend = 'best', size=(15,7), pxlthr=False, start=0, vmark  = None):
         plt.figure(figsize=size)
         ax = plt.gca()
-        len_x = len(self.imgUndistStats['Hue'])
+        len_x = len(self.imgUndistStats['Hue'][start:])
 
-        ax.plot(self.imgUndistStats['Hue'], color='r', label='Hue')
-        ax.plot(self.imgUndistStats['Lvl'], color='g', label='Lvl')
-        ax.plot(self.imgUndistStats['Sat'], color='b', label='Sat')
+        ax.plot(self.imgUndistStats['Hue'][start:], color='red'  , label='Hue')
+        ax.plot(self.imgUndistStats['Lvl'][start:], color='green', label='Lvl')
+        ax.plot(self.imgUndistStats['Sat'][start:], color='blue' , label='Sat')
+        ax.plot(self.imgUndistStats['RGB'][start:], color='darkorange', label='RGB')
+        ax.plot(np.array(self.imgThrshldHistory[start:]), label = 'ImgCondition')
         # ax.plot(self.imgUndistStats['HLS'] ,color='k', label='HLS')
-        ax.plot(self.imgUndistStats['RGB'] ,color='darkorange', label='RGB')
-        
-        ax.plot(np.array(self.imgCondHistory), label = 'ImgCondition')
-        # ax.plot(np.array(self.acceptHistory) , label = 'Polynom Acpt/Rjct')
+        ax.plot(self.diffsSrcDynPoints, color='black', label='diff')
+        # ax.plot(np.array(self.imgAcceptHistory) , label = 'Polynom Acpt/Rjct')
         if pxlthr:
-            ax.plot(self.imgPixelRatio, color='sienna', label = 'Pixel Rto')
+            ax.plot(self.imgPixelRatio[start:], color='sienna', label = 'Pixel Rto')
 
-        plt.hlines( self.HIGH_RGB_THRESHOLD    , 0, len_x, color='darkred', alpha=0.5, linestyles='dashed', linewidth=1, 
+        plt.hlines( self.HIGH_RGB_THRESHOLD, 0, len_x, color='darkred'  , alpha=0.5, linestyles='dashed', linewidth=1, 
                     label = 'High RGB '+str(self.HIGH_RGB_THRESHOLD))    
         plt.hlines( self.MED_RGB_THRESHOLD , 0, len_x, color='darkgreen', alpha=0.5, linestyles='dashed', linewidth=1, 
                     label = 'Med RGB '+str(self.MED_RGB_THRESHOLD))    
-        plt.hlines( self.LOW_RGB_THRESHOLD , 0, len_x, color='brown', alpha=0.5, linestyles='dashed', linewidth=1,  
+        plt.hlines( self.LOW_RGB_THRESHOLD , 0, len_x, color='brown'    , alpha=0.5, linestyles='dashed', linewidth=1,  
                     label = 'Low RGB '+str(self.LOW_RGB_THRESHOLD))    
-        plt.hlines( self.VLOW_RGB_THRESHOLD, 0, len_x, color='red'   , alpha=0.5, linestyles='dashed', linewidth=1,  
+        plt.hlines( self.VLOW_RGB_THRESHOLD, 0, len_x, color='red'      , alpha=0.5, linestyles='dashed', linewidth=1,  
                     label = 'VLow RGB '+str(self.VLOW_RGB_THRESHOLD))    
+
+        plt.axhspan(self.MED_RGB_THRESHOLD, self.LOW_RGB_THRESHOLD,facecolor='g', alpha = 0.5)
+        plt.axhspan(self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD,facecolor='y', alpha = 0.5)
+        plt.axhspan(self.VLOW_RGB_THRESHOLD, 0 , facecolor='lightcoral', alpha = 0.5)
+
+        if vmark:  
+            plt.axvline(vmark - start, 0, 1, color='red'  , alpha=0.5, ls='dashed', lw=1)    
+
         # plt.hlines( self.LOW_SAT_THRESHOLD , 0, len_x, color='g'   , alpha=0.5, linestyles='dashed', linewidth=1,
         #             label = 'High SAT '+str(self.HIGH_SAT_THRESHOLD))    
         # plt.hlines( self.HIGH_SAT_THRESHOLD, 0, len_x, color='k'   , alpha=0.5, linestyles='dashed', linewidth=1, 
         #             label = 'Low SAT '+str(self.HIGH_SAT_THRESHOLD))    
-        # plt.hlines( self.PIXEL_RATIO_THRESHOLD, 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1)    
         # plt.hlines( 200      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
         # plt.hlines( 150      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
         
-        for (x,_,_) in self.SrcAdjustment_history:
+        for (x,_,_) in self.imgAdjustHistory[start:]:
             ax.plot(x,-20, 'bo') 
-        leg = plt.legend(loc=legend,frameon=True, fontsize = 12, markerscale = 6)
-        leg.set_title('Legend',prop={'size':11})
-        ax.set_title('Plot 4 - UNDIST - Pxl Thrshld: {:3d} OffCt Thrshld: {:3d}'.format( 
-            self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
 
-
-    def plot_4W(self, legend = 'best', size=(15,7), pxlthr=False):
-        plt.figure(figsize=size)
-        ax = plt.gca()
-        len_x = len(self.imgUndistStats['Hue'])
-
-        ax.plot(self.imgWarpedStats['Hue'], color='r', label='Hue (W)')
-        ax.plot(self.imgWarpedStats['Lvl'], color='g', label='Lvl (W)')
-        ax.plot(self.imgWarpedStats['Sat'], color='b', label='Sat (W)')
-        # ax.plot(self.imgWarpedStats['HLS'] ,color='k', label='HLS')
-        ax.plot(self.imgWarpedStats['RGB'] ,color='darkorange', label='RGB (W)')
-        ax.plot(self.imgUndistStats['RGB'] ,color='darkblue', alpha = 0.2, label='RGB (U)', linestyle='dashed')
-
-        
-        ax.plot(np.array(self.imgCondHistory), label = 'ImgCondition')
-        # ax.plot(np.array(self.acceptHistory) , label = 'Polynom Acpt/Rjct')
-        if pxlthr:
-            ax.plot(self.imgPixelRatio, color='sienna', label = 'Pixel Rto')
-
-        plt.hlines( self.HIGH_RGB_THRESHOLD    , 0, len_x, color='darkred', alpha=0.5, linestyles='dashed', linewidth=1, 
-                    label = 'High RGB '+str(self.HIGH_RGB_THRESHOLD))    
-        # plt.hlines( 175      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
-        plt.hlines( self.MED_RGB_THRESHOLD , 0, len_x, color='darkgreen', alpha=0.5, linestyles='dashed', linewidth=1, 
-                    label = 'Med RGB '+str(self.MED_RGB_THRESHOLD))    
-        plt.hlines( self.LOW_RGB_THRESHOLD , 0, len_x, color='brown', alpha=0.5, linestyles='dashed', linewidth=1,  
-                    label = 'Low RGB '+str(self.LOW_RGB_THRESHOLD))    
-        # plt.hlines( 120      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
-        plt.hlines( self.VLOW_RGB_THRESHOLD, 0, len_x, color='red'   , alpha=0.5, linestyles='dashed', linewidth=1,  
-                    label = 'VLow RGB '+str(self.VLOW_RGB_THRESHOLD))    
-        # plt.hlines( self.LOW_SAT_THRESHOLD , 0, len_x, color='g'   , alpha=0.5, linestyles='dashed', linewidth=1,
-        #             label = 'High SAT '+str(self.HIGH_SAT_THRESHOLD))    
-        # plt.hlines( self.HIGH_SAT_THRESHOLD, 0, len_x, color='k'   , alpha=0.5, linestyles='dashed', linewidth=1, 
-        #             label = 'Low SAT '+str(self.HIGH_SAT_THRESHOLD))    
-        # plt.hlines( self.PIXEL_RATIO_THRESHOLD, 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1)    
-        # plt.hlines( 200      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
-        # plt.hlines( 150      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
-        
-        for (x,_,_) in self.SrcAdjustment_history:
-            ax.plot(x,-10, 'bo') 
+        ax.minorticks_on()
         leg = plt.legend(loc=legend,frameon=True, fontsize = 10, markerscale = 6)
         leg.set_title('Legend',prop={'size':11})
-        ax.set_title('Plot 4W - WARPED - Pxl Thrshld: {:3d} OffCt Thrshld: {:3d}'.format(
-             self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
+        ax.set_title('Plot 4U - UNDIST - Pxl Thrshld: {:5.1f} OffCt Thrshld: {:3d}'.format( 
+                     self.IMAGE_RATIO_LOW_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
+
+
+    def plot_4W(self, legend = 'best', size=(15,7), pxlthr=False, start = 0, vmark = None):
+        plt.figure(figsize=size)
+        ax = plt.gca()
+
+        len_x = len(self.imgUndistStats['Hue'][start:])
+        ax.plot(self.imgWarpedStats['Hue'][start:], color='red'  , label='Hue (W)')
+        ax.plot(self.imgWarpedStats['Lvl'][start:], color='green', label='Lvl (W)')
+        ax.plot(self.imgWarpedStats['Sat'][start:], color='blue' , label='Sat (W)')
+        ax.plot(self.imgWarpedStats['RGB'][start:], color='darkorange', label='RGB (W)')
+        # ax.plot(self.imgUndistStats['RGB'][start:], color='darkblue'  , alpha = 0.2, label='RGB (U)', linestyle='dashed')
+        # ax.plot(self.imgWarpedStats['HLS']   , color='k', label='HLS')
+        # ax.plot(np.array(self.imgAcceptHistory) , label = 'Polynom Acpt/Rjct')
+        
+        ax.plot(np.array(self.imgThrshldHistory[start:]), label = 'ImgCondition')
+        if pxlthr:
+            ax.plot(self.imgPixelRatio[start:], color='sienna', label = 'Pixel Rto')
+
+        plt.hlines( self.HIGH_RGB_THRESHOLD, 0, len_x, color='darkred'  , alpha=0.5, linestyles='dashed', linewidth=1, 
+                    label = 'High RGB '+str(self.HIGH_RGB_THRESHOLD))    
+        plt.hlines( self.MED_RGB_THRESHOLD , 0, len_x, color='darkgreen', alpha=0.5, linestyles='dashed', linewidth=1, 
+                    label = 'Med RGB '+str(self.MED_RGB_THRESHOLD))    
+        plt.hlines( self.LOW_RGB_THRESHOLD , 0, len_x, color='brown'    , alpha=0.5, linestyles='dashed', linewidth=1,  
+                    label = 'Low RGB '+str(self.LOW_RGB_THRESHOLD))       
+
+        plt.hlines( self.VLOW_RGB_THRESHOLD, 0, len_x, color='red'      , alpha=0.5, linestyles='dashed', linewidth=1,  
+                    label = 'VLow RGB '+str(self.VLOW_RGB_THRESHOLD))       
+        plt.hlines( self.LOW_SAT_THRESHOLD , 0, len_x, color='black'    , alpha=0.5, linestyles='dotted', linewidth=1,
+                    label = 'Low SAT '+str(self.LOW_SAT_THRESHOLD))       
+        plt.hlines( self.HIGH_SAT_THRESHOLD, 0, len_x, color='black'    , alpha=0.5, linestyles='dotted', linewidth=1, 
+                    label = 'Hi SAT '+str(self.HIGH_SAT_THRESHOLD))    
+        # plt.axhline( 85, 0, 1, color='black', alpha=0.9, ls='dotted', lw=1)  
+
+        plt.axhspan(self.MED_RGB_THRESHOLD, self.LOW_RGB_THRESHOLD,facecolor='g', alpha = 0.5)
+        plt.axhspan(self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD,facecolor='y', alpha = 0.5)
+        plt.axhspan(self.VLOW_RGB_THRESHOLD, 0 , facecolor='mistyrose', alpha = 0.5)
+
+        if vmark:  
+            plt.axvline(vmark - start, 0, 1, color='red'  , alpha=0.5, ls='dashed', lw=1)    
+
+        # plt.hlines( 175      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
+        # plt.hlines( 120      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
+        # plt.hlines( 200      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
+        # plt.hlines( 150      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
+        ax.minorticks_on()        
+        for (x,_,_) in self.imgAdjustHistory[start:]:
+            ax.plot(x,-10, 'bo') 
+
+        leg = plt.legend(loc=legend,frameon=True, fontsize = 10, markerscale = 6)
+        leg.set_title('Legend',prop={'size':11})
+        ax.set_title('Plot 4W - WARPED - Pxl Thrshlds: {:5.1f} OffCt Thrshld: {:3d}'.format(
+                     self.IMAGE_RATIO_LOW_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
 
 
 
@@ -1262,19 +1604,19 @@ class ALFPipeline(object):
         ax.plot(self.imgWarpedStats['Sat'], label='Sat', linestyle='dashed'  )
 
 
-        ax.plot(np.array(self.acceptHistory) , label = 'Polynom Acpt/Rjct')
-        ax.plot(np.array(self.imgCondHistory), label = 'Normal/Dark')
+        ax.plot(np.array(self.imgAcceptHistory) , label = 'Polynom Acpt/Rjct')
+        ax.plot(np.array(self.imgThrshldHistory), label = 'Normal/Dark')
 
-        ax.set_title('Plot 5 - Pxl Thrshld: {:3d} OffCt Thrshld: {:3d}'.format( self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
-        # plt.hlines( self.RGB_MEAN_THRESHOLD , 0, len_x, color='blue' , alpha=0.5, linestyles='dashed', linewidth=1)    
-        # plt.hlines( self.MED_RGB_THRESHOLD  , 0, len_x, color='darkgreen', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
+        ax.set_title('Plot 5 - Pxl Thrshld: {:5.1f} OffCt Thrshld: {:3d}'.format( self.IMAGE_RATIO_LOW_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
         plt.hlines( self.LOW_RGB_THRESHOLD    , 0, len_x, color='blue' , alpha=0.5, linestyles='dashed', linewidth=1)    
         plt.hlines( self.VLOW_RGB_THRESHOLD   , 0, len_x, color='blue' , alpha=0.5, linestyles='dashed', linewidth=1)    
-        plt.hlines( self.PIXEL_RATIO_THRESHOLD, 0, len_x, color='red'  , alpha=0.8, linestyles='dashed', linewidth=1, label='<30>')    
-        # plt.hlines( self.OFF_CENTER_ROI_THRESHOLD, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1)    
-        # plt.hlines(-self.OFF_CENTER_ROI_THRESHOLD, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1)    
+        plt.hlines( self.IMAGE_RATIO_LOW_THRESHOLD, 0, len_x, color='red'  , alpha=0.8, linestyles='dashed', linewidth=1, label='<30>')    
+
+        # plt.hlines( self.MED_RGB_THRESHOLD  , 0, len_x, color='darkgreen', alpha=0.5, linestyles='dashed', linewidth=1, label = 'MedRGB')    
+        # plt.hlines( self.CURRENT_OFFCTR_ROI_THR, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1)    
+        # plt.hlines(-self.CURRENT_OFFCTR_ROI_THR, 0, len_x, color='black', alpha=0.8, linestyles='dashed', linewidth=1)    
         
-        for (x,_,_) in self.SrcAdjustment_history:
+        for (x,_,_) in self.imgAdjustHistory:
             ax.plot(x, -10, 'bo') 
         leg = plt.legend(loc=legend,frameon=True, fontsize = 12, markerscale = 6)
         leg.set_title('Legend',prop={'size':11})
@@ -1290,18 +1632,55 @@ class ALFPipeline(object):
         # ax.plot(np.array(self.RightLane.radius_history) , color = 'b', label='Right Radius') 
         
         plt.hlines( 10  , 0, len_x, color='red'  , alpha=0.8, linestyles='dashed', linewidth=1, label='<10>')    
-        plt.hlines( self.PIXEL_RATIO_THRESHOLD   , 0, len_x, color='red'  , alpha=0.8, linestyles='dashed', linewidth=1, label='<30>')    
+        plt.hlines( self.IMAGE_RATIO_LOW_THRESHOLD   , 0, len_x, color='red'  , alpha=0.8, linestyles='dashed', linewidth=1, label='<30>')    
 
         plt.ylim(-25, 10000)
-        for (x,_,_) in self.SrcAdjustment_history:
+        for (x,_,_) in self.imgAdjustHistory:
             ax.plot(x,-20, 'bo') 
         leg = plt.legend(loc=legend,frameon=True, fontsize = 12, markerscale = 6)
         leg.set_title('Legend',prop={'size':11})
-        ax.set_title('Plot 6 - Curvature - Pxl Thrshld: {:3d} OffCt Thrshld: {:3d}'.format(
-             self.PIXEL_RATIO_THRESHOLD, self.OFF_CENTER_ROI_THRESHOLD ))
+        ax.set_title('Plot 6 - Curvature - Pxl Thrshld: {:5.1f} OffCt Thrshld: {:3d}'.format(
+             self.IMAGE_RATIO_LOW_THRESHOLD, self.CURRENT_OFFCTR_ROI_THR ))
 
 
+    def display_thresholds(self, mode = 1):
+        if isinstance(mode, int):
+            mode = [mode]
+        print()
 
+        print( ' Thresholds:  HIGH RGB: {}    MED RGB: {}   LOW RGB: {}  VLOW RGB: {}   XHIGH SAT: {}   HIGH SAT: {}   LOW SAT: {} '.format(
+                self.HIGH_RGB_THRESHOLD , self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD, 
+                self.XHIGH_SAT_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.LOW_SAT_THRESHOLD))
+
+        print()
+        for mod in mode:
+            print('','-'*150)
+            print(' {:8s} : {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format('',
+            'PL[X-High]','PL[High]','PL[Med]','PL[Low]','PL[VLow]','PL[HiSat]','PL[LoSat]'))
+            print(' {:8s} : {:>10s} {:<9d} |  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |'\
+            ' {:>8s} > {:<9d} | {:>8s} > {:<9d} |'.format('','RGB > ', self.HIGH_RGB_THRESHOLD, 
+            self.HIGH_RGB_THRESHOLD, self.MED_RGB_THRESHOLD,   self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD ,
+            self.LOW_RGB_THRESHOLD , self.VLOW_RGB_THRESHOLD, 'SAT', self.HIGH_SAT_THRESHOLD, 'SAT', self.LOW_SAT_THRESHOLD))
+            print('','-'*150)
+            print(' Mode{:2d}   : {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format(mod,
+                        self.thresholdMethods[mod]['xhigh'], self.thresholdMethods[mod]['high'], 
+                        self.thresholdMethods[mod]['med']  , self.thresholdMethods[mod]['low'], 
+                        self.thresholdMethods[mod]['vlow'] , self.thresholdMethods[mod]['hisat']))
+            print('','-'*150)
+
+            for ke in self.ImageThresholds[mod]['xhigh'].keys():
+                print(' {:8s} : {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format(ke, 
+                    str(self.ImageThresholds[mod]['xhigh'][ke]) ,                                                                                                                              
+                    str(self.ImageThresholds[mod]['high'][ke])  , 
+                    str(self.ImageThresholds[mod]['med'][ke])   , 
+                    str(self.ImageThresholds[mod]['low'][ke])   , 
+                    str(self.ImageThresholds[mod]['vlow'][ke])  , 
+                    str(self.ImageThresholds[mod]['hisat'][ke]), 
+                    str(self.ImageThresholds[mod]['lowsat'][ke]) 
+                ))    
+            print('','-'*150)
+
+            print()
 
 
     ##--------------------------------------------------------------------------------------
@@ -1313,51 +1692,55 @@ class ALFPipeline(object):
         currently we only compare the RGB mean value against a threshold
         other criteria can be considered
         '''
-        # if (self.imgWarpedStats['Sat'][-1] >  self.HIGH_SAT_THRESHOLD) or \
-        #    (self.imgWarpedStats['RGB'][-1] >  self.HIGH_RGB_THRESHOLD) :
-        #     print('Over exposed frame - detection will be skipped')
-        #     print(' WarpedStats[Sat]: {}  WarpedStats[RGB]: {} '.format(self.imgWarpedStats['Sat'][-1],
-        #                                         self.imgWarpedStats['RGB'][-1]))
-        #     self.skipFrameDetection = True
-        #     self.slidingWindowBootstrap = True
-        #     self.Conditions = 'overexposed'
-        #     self.imgCondHistory.append(-40)
-        #     thresholdParms = None
 
-        # if (self.imgWarpedStats['Sat'][-1] >  self.HIGH_SAT_THRESHOLD) or \
-        #    (self.imgWarpedStats['RGB'][-1] >  self.HIGH_RGB_THRESHOLD) :
-        #     print('Over exposed frame  -  WarpedStats[Sat]: {:7.2f}  WarpedStats[RGB]: {:7.2f} '.format(
-        #         self.imgWarpedStats['Sat'][-1], self.imgWarpedStats['RGB'][-1]))
-        #     self.Conditions = 'hisat'
-        #     self.imgCondHistory.append(30)
-        # 
-        # if (self.imgUndistStats['Sat'][-1] < self.LOW_SAT_THRESHOLD):
-        #     self.Conditions = 'lowsat'
-        #     self.imgCondHistory.append(-30)
-        
-        if (self.imgWarpedStats['RGB'][-1] < self.VLOW_RGB_THRESHOLD) :
+        if (self.imgWarpedStats['Sat'][-1] > self.XHIGH_SAT_THRESHOLD) or \
+           (self.imgWarpedStats['RGB'][-1] > self.HIGH_RGB_THRESHOLD):
+                self.Conditions = 'xhigh'
+                historyFlag = 30
+
+        elif (self.imgWarpedStats['RGB'][-1] < self.VLOW_RGB_THRESHOLD) :
             self.Conditions = 'vlow'
-            self.imgCondHistory.append(-20)
+            historyFlag = -20
         
         elif (self.imgWarpedStats['RGB'][-1] < self.LOW_RGB_THRESHOLD) :
+          
             if (self.imgWarpedStats['Sat'][-1] < self.LOW_SAT_THRESHOLD):
                 self.Conditions = 'lowsat'
-                self.imgCondHistory.append(-30)
+                historyFlag = -30
+            elif (self.imgWarpedStats['Sat'][-1] > self.HIGH_SAT_THRESHOLD):
+                self.Conditions = 'hisat'
+                historyFlag = +20
             else:
                 self.Conditions = 'low'
-                self.imgCondHistory.append(-10)
+                historyFlag = -10                
         
         elif (self.imgWarpedStats['RGB'][-1] < self.MED_RGB_THRESHOLD) :
-            self.Conditions = 'med'
-            self.imgCondHistory.append(0)
+          
+            if (self.imgWarpedStats['Sat'][-1] > self.HIGH_SAT_THRESHOLD):
+                self.Conditions = 'hisat'
+                historyFlag = 20
+            # if (self.imgWarpedStats['Sat'][-1] < self.LOW_SAT_THRESHOLD):
+                # self.Conditions = 'lowsat'
+                # historyFlag = -30
+            else:
+                self.Conditions = 'med'
+                historyFlag = 0
 
-        elif  (self.imgWarpedStats['RGB'][-1] < self.HIGH_RGB_THRESHOLD) :
-            self.Conditions = 'high'
-            self.imgCondHistory.append(10)
-        else:
-            self.Conditions = 'xhigh'
-            self.imgCondHistory.append(20)
-        
+        # elif  (self.imgWarpedStats['RGB'][-1] < self.HIGH_RGB_THRESHOLD) :
+        else: 
+            if (self.imgWarpedStats['Sat'][-1] > self.HIGH_SAT_THRESHOLD):
+                self.Conditions = 'hisat'
+                historyFlag = 20
+            else:
+                self.Conditions = 'high'
+                historyFlag = 10
+
+        # else:
+            # self.Conditions = 'xhigh'
+            # historyFlag = 30
+
+
+        self.imgThrshldHistory.append(historyFlag)
         self.thresholdMethod  =  self.thresholdMethods[self.mode][self.Conditions]
         self.thresholdStrs    =  self.itStr[self.mode][self.Conditions]           
         self.thresholdParms   =  self.ImageThresholds[self.mode][self.Conditions]         
@@ -1366,12 +1749,6 @@ class ALFPipeline(object):
 
     def initialize_thresholding_parameters(self):
 
-#       self.thresholdMethods[2]['high']   =  self.HIGH_THRESHOLDING   ## ('high_thresholding'    , 'cmb_mag_x')
-#       self.thresholdMethods[2]['med']    =  self.NORMAL_THRESHOLDING ## ('normal_thresholding'  , 'cmb_rgb_lvl_sat')
-#       self.thresholdMethods[2]['low']    =  self.LOW_THRESHOLDING    ## ('low_thresholding'     , 'cmb_mag_xy')
-#       self.thresholdMethods[2]['vlow']   =  self.VLOW_THRESHOLDING   ## ('Vlow_thresholding'     , 'cmb_mag_xy')
-#       self.thresholdMethods[2]['hisat']  =  self.HISAT_THRESHOLDING  ## ('hisat_thresholding'   , 'cmb_mag_x')
-#       self.thresholdMethods[2]['lowsat'] =  self.LOWSAT_THRESHOLDING ## ('lowsat_thresholding'  , 'cmb_hue_x')
 
         ##---------------------------------------------
         ## Image Thresholding params 
@@ -1380,11 +1757,11 @@ class ALFPipeline(object):
         self.itStr            = { 1: {} , 2: {} }
         self.thresholdMethods = { 1: {} , 2: {} }
 
-        self.thresholdMethods[1]['xhigh']   =  self.XHIGH_THRESHOLDING   
+        self.thresholdMethods[1]['xhigh']  =  self.XHIGH_THRESHOLDING   
         self.thresholdMethods[1]['high']   =  self.HIGH_THRESHOLDING   
         self.thresholdMethods[1]['med']    =  self.NORMAL_THRESHOLDING 
         self.thresholdMethods[1]['low']    =  self.LOW_THRESHOLDING    
-        self.thresholdMethods[1]['Vlow']   =  self.VLOW_THRESHOLDING    
+        self.thresholdMethods[1]['vlow']   =  self.VLOW_THRESHOLDING    
         self.thresholdMethods[1]['hisat']  =  self.HISAT_THRESHOLDING  
         self.thresholdMethods[1]['lowsat'] =  self.LOWSAT_THRESHOLDING 
 
@@ -1474,13 +1851,20 @@ class ALFPipeline(object):
         ##------------------------------------
         ## Warped Image Threshold params
         ##------------------------------------
+#       self.thresholdMethods[2]['high']   =  self.HIGH_THRESHOLDING   ## ('high_thresholding'    , 'cmb_mag_x')
+#       self.thresholdMethods[2]['med']    =  self.NORMAL_THRESHOLDING ## ('normal_thresholding'  , 'cmb_rgb_lvl_sat')
+#       self.thresholdMethods[2]['low']    =  self.LOW_THRESHOLDING    ## ('low_thresholding'     , 'cmb_mag_xy')
+#       self.thresholdMethods[2]['vlow']   =  self.VLOW_THRESHOLDING   ## ('Vlow_thresholding'    , 'cmb_mag_xy')
+#       self.thresholdMethods[2]['hisat']  =  self.HISAT_THRESHOLDING  ## ('hisat_thresholding'   , 'cmb_mag_x')
+#       self.thresholdMethods[2]['lowsat'] =  self.LOWSAT_THRESHOLDING ## ('lowsat_thresholding'  , 'cmb_hue_x')
+
         self.thresholdMethods[2]['xhigh']  =  self.XHIGH_THRESHOLDING   
         self.thresholdMethods[2]['high']   =  self.HIGH_THRESHOLDING   
         self.thresholdMethods[2]['med']    =  self.NORMAL_THRESHOLDING 
         self.thresholdMethods[2]['low']    =  self.LOW_THRESHOLDING    
         self.thresholdMethods[2]['vlow']   =  self.VLOW_THRESHOLDING    
-        # self.thresholdMethods[2]['hisat']  =  self.HISAT_THRESHOLDING  
-        # self.thresholdMethods[2]['lowsat'] =  self.LOWSAT_THRESHOLDING         
+        self.thresholdMethods[2]['hisat']  =  self.HISAT_THRESHOLDING  
+        self.thresholdMethods[2]['lowsat'] =  self.LOWSAT_THRESHOLDING         
 
         self.ImageThresholds[2]['xhigh'] = {
             'ksize'      : 7         , 
@@ -1566,17 +1950,22 @@ class ALFPipeline(object):
             'hue_thr'    : ( 15, 50)
         }
 
+        self.thresholds_to_str()
+
+
+    def thresholds_to_str(self):
         for mode in [1,2]:
             for cond in self.ImageThresholds[mode].keys():
+                print(mode ,    ' cond: ',cond)
                 self.itStr[mode][cond] = {}
                 for thr in self.ImageThresholds[mode][cond].keys():
+                    print('      thr : ', thr, '   ', self.ImageThresholds[mode][cond][thr])
                     self.itStr[mode][cond][thr] = str(self.ImageThresholds[mode][cond][thr])
 
 
 
 
-        # ax.plot(np.array(self.imgCondHistory), label = 'Normal/Dark')
-
+        # ax.plot(np.array(self.imgThrshldHistory), label = 'Normal/Dark')
         # ax.plot(self.diffsSrcDynPoints , label = 'SrcDynDiff')
         # ax.plot(self.WarpedRGBMean     , label = 'Warped RGB Mean')
         # ax.plot(np.array(videoPipeline.RightLane.RSE_history), label = 'RLane RSE')
@@ -1591,8 +1980,8 @@ class ALFPipeline(object):
         # ax.plot(self.UndistRGBMean, label = 'Undist RGB Mean')
         # ax.plot(self.WarpedRGBMean, label = 'Warped RGB Mean')
         # ax.plot(self.diffsSrcDynPoints, label = 'SrcDynDiff')
-        # ax.plot(np.array(self.acceptHistory), label = 'Polynom Acpt/Rjct')
-        # ax.plot(np.array(self.imgCondHistory), label = 'Normal/Dark')
+        # ax.plot(np.array(self.imgAcceptHistory), label = 'Polynom Acpt/Rjct')
+        # ax.plot(np.array(self.imgThrshldHistory), label = 'Normal/Dark')
 
         # ax.plot(self.imgUndistStats['Hue'], color='r', label='Hue'  )   
         # ax.plot(self.imgUndistStats['Lvl'], color='g', label='Level') 
@@ -1620,12 +2009,5 @@ class ALFPipeline(object):
         # ax.plot(self.UndistRGBMean, label = 'Undist RGB Mean')
         # ax.plot(self.WarpedRGBMean, label = 'Warped RGB Mean')
         # ax.plot(self.diffsSrcDynPoints, label = 'SrcDynDiff')
-        # ax.plot(np.array(self.acceptHistory), label = 'Polynom Acpt/Rjct')
-        # ax.plot(np.array(self.imgCondHistory), label = 'Normal/Dark')
-
-        # result_1, _ = displayDetectedRegion(self.imgUndist, self.LeftLane.fitted_current, self.RightLane.fitted_current, 
-        #                              self.Minv, start=region_zone_sep_pos        , beta = 0.2, color = polyRegionColor1)
-        # result_1, _ = displayDetectedRegion(result_1      , self.LeftLane.fitted_current, self.RightLane.fitted_current, 
-        #                              self.Minv, start=200,end=region_zone_sep_pos, beta = 0.2, color = polyRegionColor2)
-
-
+        # ax.plot(np.array(self.imgAcceptHistory), label = 'Polynom Acpt/Rjct')
+        # ax.plot(np.array(self.imgThrshldHistory), label = 'Normal/Dark')

@@ -18,19 +18,78 @@ def convert_to_gray(img):
     return gray
 
 def perspectiveTransform(img, source, dest, debug = False):
-    if debug: 
-        print('src: ', type(source), source.shape, ' - ',  source)
-        print('dst: ', type(dest), dest.shape, ' - ',  dest)
 
     M = cv2.getPerspectiveTransform(source, dest)
     Minv = cv2.getPerspectiveTransform(dest, source)    
 
     if debug: 
+        print('src: ', type(source), source.shape, ' - ',  source)
+        print('dst: ', type(dest), dest.shape, ' - ',  dest)
         print(' M: ', M.shape, ' Minv: ', Minv)
         
     return cv2.warpPerspective(img, M, img.shape[1::-1], flags=cv2.INTER_LINEAR), M, Minv
 
 
+def unwarpImage(img, nx, ny, cam, dst, debug = False):
+    # 1) Undistort using mtx and dist
+    # 2) Convert to grayscale
+    # 3) Find the chessboard corners
+    # 4) If corners found: 
+            # a) draw corners
+            # b) define 4 source points src = np.float32([[,],[,],[,],[,]])
+                 #Note: you could pick any four of the detected corners 
+                 # as long as those four corners define a rectangle
+                 #One especially smart way to do this would be to use four well-chosen
+                 # corners that were automatically detected during the undistortion steps
+                 #We recommend using the automatic detection of corners in your code
+            # c) define 4 destination points dst = np.float32([[,],[,],[,],[,]])
+            # d) use cv2.getPerspectiveTransform() to get M, the transform matrix
+            # e) use cv2.warpPerspective() to warp your image to a top-down view
+    
+    ## 1. UNDISTORT 
+    undist = cv2.undistort(img, cam.cameraMatrix, cam.distCoeffs, None, cam.cameraMatrix)
+    
+    ## 2. Convert to Gray Scale
+    imgGray = cv2.cvtColor(undist, cv2.COLOR_BGR2GRAY)
+
+    ## 3. Find corners
+    ret, corners = cv2.findChessboardCorners(imgGray, (nx, ny), cv2.CALIB_CB_ADAPTIVE_THRESH)
+    if ret:
+        if debug:
+            print(' img shape: ',undist.shape[1::-1])
+            print(' ret    : ', ret)
+            if ret:
+                print(' Corners: ', corners.shape)
+                # print(corners)
+
+        cornerCount = corners.shape[0]
+        if (cornerCount % nx) != 0:
+            print(' Not all corners have been detected!! nx:', nx, ' ny: ', ny, ' corners detected: ', cornerCount)
+            M = np.eye(3)
+        else:
+            ## 4a. if corners found Draw corners 
+            cv2.drawChessboardCorners(undist, (nx, ny), corners, ret)        
+            
+            ## 4b. define 4 source pointsl        
+            src = np.float32([corners[0,0], corners[nx-1,0], corners[nx*(ny-1),0], corners[nx*ny-1,0]])
+
+            ## 4c. define 4 destination points
+            
+            ## 4d. get M tranform matrix     
+            M = cv2.getPerspectiveTransform(src, dst)
+
+            if debug: 
+                print('src: ', type(src), src.shape, ' - ',  src)
+                print('dst: ', type(dst), dst.shape, ' - ',  dst)
+                print(' M:', M.shape)
+    else:
+        M = np.eye(3)
+        
+    ## 4e. warp image to top-down view
+    warped = cv2.warpPerspective(undist, M, undist.shape[1::-1], flags=cv2.INTER_LINEAR)
+    return undist, warped, M
+
+    
 def erodeImage(img, ksize = 7, iters = 1):
     # Eroding the image , decreases brightness of image
     # Get structuring element/kernel which will be used for erosion
@@ -277,7 +336,7 @@ def color_thresh(img, thresh=(0, 255), channel = 0, display = False):
         print(' s_channel    : ', s_channel.shape)
         print(' binary_output: ', binary_output.shape)
         
-        display_one(s_channel, title='RGB channel '+str(channel)+ '  Min: ' +str(s_channel.min())+ ' Max: '+str(s_channel.max()) )    
+        display_one(s_channel, title='RGB channel '+str(channel)+ '  Min: ' +str(s_channel.min())+ ' Max: '+str(s_channel.max()), cbar = True )    
         display_one(filtered_dir, title='filtered_grad - within thresholds: '+thresh_str)        
         display_one(binary_output, title='Thresholded Output- thresholds: '+thresh_str)    
     
@@ -344,8 +403,8 @@ def level_thresh(img_hls, thresh=(0, 255), display = False):
     thresh_str = str(thresh)
 
     s_channel = img_hls[:,:,1]
-    print(s_channel.min(), s_channel.max())
     binary_output = ((s_channel >= thresh[0]) & (s_channel <= thresh[1])).astype(np.uint8)
+    
     
     if display:
         filtered_dir = np.copy(s_channel)
@@ -354,6 +413,11 @@ def level_thresh(img_hls, thresh=(0, 255), display = False):
         display_one(s_channel, title='Level channel '+thresh_str + '  Min: ' +str(s_channel.min())+ ' Max: '+str(s_channel.max()), cbar =True )    
         display_one(filtered_dir, title='filtered_grad - within thresholds: '+thresh_str, cbar =True)        
         display_one(binary_output, title='Thresholded Output- thresholds: '+thresh_str, cbar =True)    
+    
+    # ttl_pxls  = (img_hls.shape[0] * img_hls.shape[1])
+    # pxl_ratio = round(np.sum(binary_output) * 100/ttl_pxls,2)
+    # binary_output = binary_output if pxl_ratio > 50 else np.zeros_like(binary_output)
+    
     return binary_output
 
 def saturation_thresh(img_hls, thresh=(0, 255), display = False):
@@ -474,7 +538,7 @@ def YCrCb_Cb_thresh(img, thresh=(0, 255), display = False):
     return binary_output
 
 def apply_thresholds(img,  thrshlds , **kwargs): 
-
+ 
     thrshlds.setdefault('ksize'  , 10)
     thrshlds.setdefault('x_thr'  , 0)
     thrshlds.setdefault('y_thr'  , None)
@@ -489,9 +553,10 @@ def apply_thresholds(img,  thrshlds , **kwargs):
     debug  = kwargs.get('debug' , False)
     debug2 = kwargs.get('debug2', False)
     results    = {}
-
-    img_gray = convert_to_gray(img)
-    img_hls  = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    ttl_pixels = img.shape[0] * img.shape[1]
+    half_pxls  = ttl_pixels // 2    
+    img_gray   = convert_to_gray(img)
+    img_hls    = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     
     empty_shape = np.zeros((img.shape[0], img.shape[1]),dtype = np.uint8)
 
@@ -537,10 +602,18 @@ def apply_thresholds(img,  thrshlds , **kwargs):
     else:
         results['cmb_hue'] = hue_thresh(img_hls, thresh = thrshlds['hue_thr'])
 
-
+    pxl_ratio = {}; hlf_ratio = {}
+    for k in results.keys():
+        hlf_ratio[k] = round(np.sum(results[k][450:680,:]) * 100/half_pxls,2)
+        pxl_ratio[k] = round(np.sum(results[k]) * 100/ttl_pixels,2)
+        if hlf_ratio[k] > 9.0:
+            results[k] = np.zeros_like(results[k]) 
+            if debug:
+                print(' set {} to zeros hlf_pixel: {}     pxl_ratio: {}'.format( k, hlf_ratio[k], pxl_ratio[k]))
 
     results['cmb_xy'] = results['cmb_x'] | results['cmb_y']
     results['cmb_mag_x'] = results['cmb_mag'] | results['cmb_x']  
+    results['cmb_mag_xy'] = results['cmb_mag'] | results['cmb_xy']   
     results['cmb_mag_lvl_x'] = results['cmb_mag_x'] | results['cmb_lvl']  
     results['cmb_mag_sat_lvl_x'] = results['cmb_mag_lvl_x'] | results['cmb_sat']  
     # results['cmb_mag_xy'] = results['cmb_mag_x'] | results['cmb_y']  
@@ -575,6 +648,7 @@ def apply_thresholds(img,  thrshlds , **kwargs):
         axs[3,0].imshow(dir_thr           , cmap ='gray');  axs[2,1].set_title('Directional thresholding: '+ str(thrshlds['dir_thr']))
         axs[3,1].imshow(results['cmb_mag'], cmap ='gray');  axs[3,1].set_title('Mag and Dir thresholding: '+ str(thrshlds['mag_thr']))
         axs[4,0].imshow(results['cmb_hue'], cmap ='gray');  axs[3,0].set_title('Hue thresholding: '        + str(thrshlds['hue_thr']))
+        axs[4,1].imshow(results['cmb_mag_xy'], cmap ='gray');  axs[3,0].set_title('cmb_mag_xy:  (mag | xy)'+ str(thrshlds['mag_thr']))
         plt.show()
 
     if debug:
@@ -601,100 +675,115 @@ def apply_thresholds(img,  thrshlds , **kwargs):
         return results
         
 def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
-    debug  = kwargs.get('debug' ,  False)
-    debug2 = kwargs.get('debug2',  False)
-    SIZE   = kwargs.get('size'  , (18,6))
-    results    = {}
+    debug   = kwargs.get('debug' ,  False)
+    debug2  = kwargs.get('debug2',  False)
+    SIZE    = kwargs.get('size'  , (18,6))
+    results = {}
+    inp_ratio = {}
+    res_ratio = {}
+    keys      = list(inputs.keys())
+    ttl_pixels  = inputs[keys[0]].shape[0] * inputs[keys[0]].shape[1]
+    half_pixels = ttl_pixels // 2
+    warped_p    = 'warped    %'
 
-    for k in inputs.keys():
+    for k in keys:
         results[k], _, Minv = perspectiveTransform(inputs[k] , source, dest, debug = debug2)
-        # print(k)
+        inp_ratio[k] = str(round(np.sum(inputs[k][450:680,:]) * 100/half_pixels,2))
+        res_ratio[k] = str(round(np.sum(results[k]) * 100/ttl_pixels,2))
+        # if debug:
+            # print( ' {:20s}     {:6d}      {:8.2f} '.format(k, np.count_nonzero(results[k]), res_ratio[k]))
     
     if debug:
-        display_multi(inputs['cmb_x']  , results['cmb_x']  , 
-                      inputs['cmb_hue'], results['cmb_hue'], 
-                      title1 = 'cmb_x   '+itStr['x_thr']   , title3 = 'cmb_hue '+itStr['hue_thr'], 
-                      title2 = 'warped'                    , title4 = 'warped')
+        display_multi(inputs['cmb_x']   , results['cmb_x']  , 
+                      inputs['cmb_hue'] , results['cmb_hue'], 
+                      title1 = 'cmb_x   '+itStr['x_thr']  +'    %'+inp_ratio['cmb_x'], 
+                      title3 = 'cmb_hue '+itStr['hue_thr']+'    %'+inp_ratio['cmb_hue'], 
+                      title2 = warped_p + res_ratio['cmb_x'], 
+                      title4 = warped_p + res_ratio['cmb_hue'])
 
-        display_multi(inputs['cmb_mag'], results['cmb_mag'], 
-                      inputs['cmb_lvl'], results['cmb_lvl'], 
-                      title1 = 'cmb_mag '+itStr['mag_thr'] , title3= 'cmb_lvl '+itStr['lvl_thr'], 
-                      title2 = 'warped'                    , title4= 'warped')
+        display_multi(inputs['cmb_mag'] , results['cmb_mag'], 
+                      inputs['cmb_lvl'] , results['cmb_lvl'], 
+                      title1 = 'cmb_mag '+itStr['mag_thr']+'    %'+inp_ratio['cmb_mag'],
+                      title3 = 'cmb_lvl '+itStr['lvl_thr']+'    %'+inp_ratio['cmb_lvl'],  
+                      title2 = warped_p + res_ratio['cmb_mag'], 
+                      title4 = warped_p + res_ratio['cmb_lvl'])
 
-        display_multi(inputs['cmb_rgb'], results['cmb_rgb'], 
-                      inputs['cmb_sat'], results['cmb_sat'], 
-                      title1 = 'cmb_rgb '+itStr['rgb_thr'] , title3 = 'cmb_sat '+itStr['sat_thr'], 
-                      title2 = 'warped'                    , title4 = 'warped')
+        if itStr['mag_thr'] :
+            display_multi(inputs['cmb_mag_x']       , results['cmb_mag_x'],   
+                            inputs['cmb_mag_lvl_x'] , results['cmb_mag_lvl_x'],
+                            title1 = 'cmb_mag_x'    +'    %'+inp_ratio['cmb_mag_x'],  
+                            title3 = 'cmb_mag_lvl_x'+'    %'+inp_ratio['cmb_mag_lvl_x'],
+                            title2 = warped_p + res_ratio['cmb_mag_x'], 
+                            title4 = warped_p + res_ratio['cmb_mag_lvl_x'])
+
+        if itStr['hue_thr'] != 'None': 
+            display_multi(inputs['cmb_hue_x']     , results['cmb_hue_x'], 
+                          inputs['cmb_hue_mag_x'] , results['cmb_hue_mag_x'], 
+                          title1 = 'cmb_hue_x'    +'    %'+inp_ratio['cmb_hue_x'],  
+                          title3 = 'cmb_hue_mag_x'+'    %'+inp_ratio['cmb_hue_mag_x'],
+                          title2 = warped_p + res_ratio['cmb_hue_x'], 
+                          title4 = warped_p + res_ratio['cmb_hue_mag_x'])
+
+        if itStr['lvl_thr'] != 'None': 
+            display_multi(inputs['cmb_hue_lvl_x']     , results['cmb_hue_lvl_x']    , 
+                          inputs['cmb_hue_mag_lvl_x'] , results['cmb_hue_mag_lvl_x'], 
+                          title1 = 'cmb_hue_lvl_x'    +'    %'+inp_ratio['cmb_hue_lvl_x'], 
+                          title3 = 'cmb_hue_mag_lvl_x'+'    %'+inp_ratio['cmb_hue_mag_lvl_x'], 
+                          title2 = warped_p + res_ratio['cmb_hue_lvl_x'], 
+                          title4 = warped_p + res_ratio['cmb_hue_mag_lvl_x'])
+
+
         
         if itStr['y_thr'] != 'None':
             display_multi(inputs['cmb_y']  , results['cmb_y']  , 
                           inputs['cmb_xy'] , results['cmb_xy'] , 
-                          title1 ='cmb_y '+itStr['y_thr'], title3 = 'cmb_xy',
-                          title2 = 'warped'              , title4 = 'warped')
+                          title1 = 'cmb_y '+itStr['y_thr']+'    %'+inp_ratio['cmb_y'],  
+                          title3 = 'cmb_xy'+'    %'+inp_ratio['cmb_xy'], 
+                          title2 = warped_p + res_ratio['cmb_y'], 
+                          title4 = warped_p + res_ratio['cmb_xy'])
         
+        if itStr['rgb_thr']  != 'None' or itStr['sat_thr'] != 'None':
+            display_multi(inputs['cmb_rgb'], results['cmb_rgb'], 
+                          inputs['cmb_sat'], results['cmb_sat'], 
+                          title1 = 'cmb_rgb '+itStr['rgb_thr']+'    %'+inp_ratio['cmb_rgb'],  
+                          title3 = 'cmb_sat '+itStr['sat_thr']+'    %'+inp_ratio['cmb_sat'], 
+                          title2 = warped_p + res_ratio['cmb_rgb'], 
+                          title4 = warped_p + res_ratio['cmb_sat'])
 
-        if itStr['rgb_thr'] or itStr['lvl_thr']:
+        if itStr['sat_thr'] != 'None':
+            display_multi(inputs['cmb_sat_x']    , results['cmb_sat_x']    ,
+                          inputs['cmb_sat_mag_x'], results['cmb_sat_mag_x'],
+                          title1 = 'cmb_sat_x'    +'    %'+inp_ratio['cmb_sat_x'],
+                          title3 = 'cmb_sat_mag_x'+'    %'+inp_ratio['cmb_sat_mag_x'],
+                          title2 = warped_p + res_ratio['cmb_sat_x'], 
+                          title4 = warped_p + res_ratio['cmb_sat_mag_x'])
+
+            display_multi(inputs['cmb_hue_mag_sat']     , results['cmb_hue_mag_sat']    , 
+                          inputs['cmb_hue_mag_lvl_sat'] , results['cmb_hue_mag_lvl_sat'], 
+                          title1 = 'cmb_hue_mag_sat'    +'  %'+inp_ratio['cmb_hue_mag_sat'], 
+                          title3 = 'cmb_hue_mag_lvl_sat'+'  %'+inp_ratio['cmb_hue_mag_lvl_sat'], 
+                          title2 = warped_p + res_ratio['cmb_hue_mag_sat'], 
+                          title4 = warped_p + res_ratio['cmb_hue_mag_lvl_sat'])
+
+
+        if itStr['rgb_thr'] != 'None' or itStr['lvl_thr'] != 'None':
             display_multi(inputs['cmb_rgb_lvl']    , results['cmb_rgb_lvl'] ,          
                           inputs['cmb_rgb_lvl_sat'], results['cmb_rgb_lvl_sat'] , 
-                          title1 = 'cmb_rgb_lvl'   , title3 = 'cmb_rgb_lvl_sat',
-                          title2 = 'warped'        , title4 = 'warped')
+                          title1 = 'cmb_rgb_lvl'    +'    %'+inp_ratio['cmb_rgb_lvl'], 
+                          title3 = 'cmb_rgb_lvl_sat'+'    %'+inp_ratio['cmb_rgb_lvl_sat'], 
+                          title2 = warped_p + res_ratio['cmb_rgb_lvl'], 
+                          title4 = warped_p + res_ratio['cmb_rgb_lvl_sat'])
+
             
             display_multi(inputs['cmb_rgb_lvl_sat_mag']  , results['cmb_rgb_lvl_sat_mag'],   
                           inputs['cmb_rgb_lvl_sat_mag_x'], results['cmb_rgb_lvl_sat_mag_x'], 
-                          title1 = 'cmb_rgb_lvl_sat_mag' , title3 = 'cmb_rgb_lvl_sat_mag_x', 
-                          title2 = 'warped'              , title4 = 'warped')
-
-        if itStr['sat_thr']:
-            display_multi(inputs['cmb_sat_x']    , results['cmb_sat_x']    ,
-                          inputs['cmb_sat_mag_x'], results['cmb_sat_mag_x'],
-                          title1 = 'cmb_sat_x'   , title3 = 'cmb_sat_mag_x', 
-                          title2 = 'warped'      , title4 = 'warped')
+                          title1 = 'cmb_rgb_lvl_sat_mag'  +'    %'+inp_ratio['cmb_rgb_lvl_sat_mag'], 
+                          title3 = 'cmb_rgb_lvl_sat_mag_x'+'    %'+inp_ratio['cmb_rgb_lvl_sat_mag_x'],
+                          title2 = warped_p + res_ratio['cmb_rgb_lvl_sat_mag'], 
+                          title4 = warped_p + res_ratio['cmb_rgb_lvl_sat_mag_x'])
 
 
-        if itStr['mag_thr'] :
-            display_multi(inputs['cmb_mag_x']    , results['cmb_mag_x'],   
-                          inputs['cmb_mag_lvl_x'], results['cmb_mag_lvl_x'],
-                          title1 = 'cmb_mag_x'   , title3 = 'cmb_mag_lvl_x', 
-                          title2 = 'warped'      , title4 = 'warped')
-        
-        if itStr['hue_thr']: 
-            display_multi(inputs['cmb_hue_x']    , results['cmb_hue_x'], 
-                          inputs['cmb_hue_mag_x'], results['cmb_hue_mag_x'], 
-                          title1 = 'cmb_hue_x'   , title3 = 'cmb_hue_mag_x',
-                          title2 = 'warped'      , title4 = 'warped')
-
-            display_multi(inputs['cmb_hue_lvl_x']     , results['cmb_hue_lvl_x']    , 
-                          inputs['cmb_hue_mag_lvl_x'] , results['cmb_hue_mag_lvl_x'], 
-                          title1 = 'cmb_hue_lvl_x'    , title3 = 'cmb_hue_mag_lvl_x',
-                          title2 = 'warped'           , title4 = 'warped')        
-        
-            display_multi(inputs['cmb_hue_mag_sat']     , results['cmb_hue_mag_sat']    , 
-                          inputs['cmb_hue_mag_lvl_sat'] , results['cmb_hue_mag_lvl_sat'], 
-                          title1 = 'cmb_hue_mag_sat'    , title3 = 'cmb_hue_mag_lvl_sat',
-                          title2 = 'warped'             , title4 = 'warped')        
     return  results
-
-#                            cmb_x
-#                            cmb_y
-#                            cmb_mag
-#                            cmb_rgb
-#                            cmb_lvl
-#                            cmb_sat
-#                            cmb_hue
-#                            cmb_xy
-#                            cmb_mag_x
-#                            cmb_mag_lvl_x
-#                            cmb_mag_sat_lvl_x
-#                            cmb_rgb_lvl
-#                            cmb_rgb_lvl_sat
-#                            cmb_rgb_lvl_sat_mag
-#                            cmb_rgb_lvl_sat_mag_x
-#                            cmb_hue_x
-#                            cmb_hue_mag_x
-#                            cmb_hue_mag_lvl_x
-#                            cmb_sat_x
-#                            cmb_sat_mag
-#                            cmb_sat_mag_x
 
 
 def apply_thresholds_v1(img, ret = None, ksize = 10, x_thr = 0, y_thr = 0, mag_thr = 0, dir_thr = 0, sat_thr = None,

@@ -29,14 +29,11 @@ class PlotDisplay(Figure):
         self.subplot = 0
 
 
-    def addPlot(self, *args, 
-                subplot= 0, 
-                
-                **kwargs):
+    def addPlot(self, *args, subplot= 0, **kwargs):
         
         # print(kwargs)
         title = kwargs.setdefault('title' , ' Image ')
-        type  = kwargs.setdefault('type'  , 'image')
+        typ   = kwargs.setdefault('type'  , 'image')
         xlabel= kwargs.setdefault('xlabel', 'X axis')
         ylabel= kwargs.setdefault('ylabel', 'Y axis')
         color = kwargs.setdefault('color' , 'r')
@@ -59,7 +56,7 @@ class PlotDisplay(Figure):
         ax.set_xlabel(xlabel, fontsize=10)
         ax.set_ylabel(ylabel, fontsize=10)
             
-        if type == 'plot':
+        if typ == 'plot':
             # if len(args) == 1:
             ax.plot(*args, color = color)
             # else :
@@ -87,28 +84,3 @@ class PlotDisplay(Figure):
     def resetPlot(self):
         self.subplot = 0 
 
-'''
-    def addPlot(self, img, subplot = 0, title = ' Image ', type = 'image' ):
-        if self.subplot >= (self.rows * self.cols):
-            print(' Maximum number of subplots reached')
-            return self.subplot
-            
-        elif subplot == 0:
-            self.subplot += 1
-            subplot = self.subplot
-        else:
-            self.subplot = subplot
-            
-        ax = self.add_subplot(self.rows, self.cols, subplot)
-        ax.tick_params(axis='both', labelsize = 5)
-        ax.tick_params(direction='out', length=6, width=1, colors='k', labelsize = 10)
-        ax.set_xlabel(' X axis', fontsize=10)
-        ax.set_ylabel(' Y axis', fontsize=10)
-        if type == 'plot':
-            ax.plot(img)
-        else:
-            ax.imshow(img , cmap=plt.cm.gray)        
-        ax.set_title(title +'      ' +str(img.shape), fontsize=12)
-        return ax
-'''
-        

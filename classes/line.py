@@ -6,21 +6,18 @@ from collections import deque
 import pprint 
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
-
-
-# pp.pprint(sys.modules)
-print(os.getcwd())
-# pp.pprint(sys.path)
+print(' Loading line.py - cwd:', os.getcwd())
 
 # Define a class to receive the characteristics of each line detection
 class Line():
     
     def __init__(self, history, height, y_src_top, y_src_bot, **kwargs):
 
-        self.history       = history
-        self.name          = kwargs.get('name', '')
-        self.POLY_DEGREE   = kwargs.get('poly_degree', 2)
-        self.RSE_THRESHOLD = kwargs.get('rse_threshold', 120)
+        self.history           = history
+        self.name              = kwargs.get('name', '')
+        self.POLY_DEGREE       = kwargs.get('poly_degree', 2)
+        self.MIN_POLY_DEGREE   = kwargs.get('min_poly_degree', self.POLY_DEGREE)
+        self.RSE_THRESHOLD     = kwargs.get('rse_threshold', 120)
         # height of current image 
         self.set_height(height)
         print(' poly degree = ', self.POLY_DEGREE)
@@ -35,16 +32,15 @@ class Line():
         self.set_MX(__MX_nom, __MX_denom, debug = False) # meters per pixel in x dimension
         
         # was the line detected in the last iteration?
-        self.detected  = False  
+        self.detected    = False  
         self.ttlAccepted = 0
         self.ttlRejected = 0
         self.ttlRejectedFramesSinceDetected = 0 
         self.ttlAcceptedFramesSinceRejected = 0 
 
-        self.x_base    = deque([0],  8) 
-        self.y_src_bot = y_src_bot
-        self.y_src_top = y_src_top
-        
+        self.y_src_bot   = y_src_bot
+        self.y_src_top   = y_src_top
+        self.fitPolynomial = None
         # y values correspoinding to current fitting/ image height
         self.set_ploty()
         self.y_checkpoints = np.concatenate((np.arange(self.y_src_bot,-1,-100), [self.y_src_top]))
@@ -68,8 +64,11 @@ class Line():
         # fitted_history: x values of the last n fits of the line  
         #-----------------------------------------------------------------------
         self.curr_fit             = None ## np.array([0,0,0], dtype='float')        
-        self.curr_fit_history     = deque([], self.history)
-
+        # self.curr_fit_history     = deque([], self.history)
+        
+        self.proposed_curve       = None
+        self.proposed_fit_history = [np.array([0,0,0], dtype='float') ] 
+        
         self.fitted_current       = None        
         self.fitted_history       = deque([], self.history)
 
@@ -78,7 +77,8 @@ class Line():
         # Best fit polynomial coefficients, diff with current fitted and history
         #-----------------------------------------------------------------------
         self.best_fit             = None
-        self.best_fit_history     = deque([], self.history)
+        # self.best_fit_history     = deque([], self.history)
+        self.best_fit_history     = []
         
         self.fitted_best          = None  
         self.fitted_best_history  = deque([], self.history)
@@ -87,35 +87,42 @@ class Line():
         ## Various measures of error 
         ## Least squares error between fitted polynom and best_fit
         #-----------------------------------------------------------------------
-        self.RSE                = 0  
-        self.avg_RSE            = 0
-        self.prev_avg_RSE       = 0
-        self.RSE_history        = [] 
-
-
-        self.RMSE               = 0
-        self.avg_RMSE           = 0 
-        self.RMSE_history       = []
+        self.RSE                 = 0  
+        self.avg_RSE             = 0
+        self.prev_avg_RSE        = 0
+        self.RSE_history         = [] 
+ 
+ 
+        self.RMSE                = 0
+        self.avg_RMSE            = 0 
+        self.RMSE_history        = []
 
         self.RSE_threshold_history = []
 
         #radius of curvature of the line in some units
-        self.radius_history     = []
-        self.radius_avg         = 0.0
+        self.radius_history      = []
+        self.radius_avg          = 0.0
         
         #distance in meters of vehicle center from the line
-        self.line_base_pixels   = [] 
-        self.line_base_meters   = [] 
-        self.pixelRatio         = [] 
-        self.pixelRatioAvg      = 0
+        self.line_base_pixels    = [] 
+        self.line_base_meters    = [] 
+        self.pixelRatio          = [] 
+        self.pixelCount          = []
+
+        self.avg_pixelRatio      = 0
+        self.prev_avg_pixelRatio = 0
 
         #slope of detected lane 
-        self.slope              = []
+        self.slope               = []
+        self.x_base              = deque([0],  8) 
         
         # x/y values for detected line pixels
-        self.allx = None  
-        self.ally = None  
-        
+        self.allx                = None  
+        self.ally                = None  
+        self.allx_hist           = []
+        self.ally_hist           = []
+        self.best_allx           = None  
+        self.best_ally           = None  
         # print(' Line init() complete ')
 
     def set_MX(self, nom = 3.7, denom = 700, debug = False):
@@ -145,36 +152,46 @@ class Line():
     def set_ploty(self, start = 0, end = 0):
         if end == 0:
             end = self.height
-        self.ploty = np.linspace(start, end-1, end-start,dtype = np.int)
+        self.plot_y = np.linspace(start, end-1, end-start,dtype = np.int)
                 
     def set_linePixels(self, x_values, y_values):
         self.allx = x_values
         self.ally = y_values
         
-    def set_linepos(self, y_eval = 0, poly = None, debug = False):
-        lb_pxls, lb_mtrs = self.get_linepos(y_eval, poly, debug = debug)
+        if len(x_values) == 0:
+            self.allx_hist.append(( 0, 0))
+        else:
+            self.allx_hist.append((x_values.min(), x_values.max()))
+        
+        if len(x_values) == 0:
+            self.ally_hist.append(( 0, 0))
+        else:
+            self.ally_hist.append((y_values.min(), y_values.max()))
+
+    def set_linepos(self, fit_parms = None, y_eval = 0, debug = False):
+        lb_pxls, lb_mtrs = self.get_linepos(fit_parms, y_eval, debug = debug)
         self.line_base_pixels.append( lb_pxls )
         self.line_base_meters.append( lb_mtrs )
 
-    def get_linepos(self, y_eval= 0 , poly = None, debug = False):
-        if poly is None:
-            poly = self.best_fit
+    def get_linepos(self, fit_parms = None, y_eval = 0 , debug = False):
+        if fit_parms is None:
+            fit_parms = self.best_fit
         
-        x =  np.polyval(poly, y_eval)
+        x =  np.polyval(fit_parms, y_eval)
         lb_pixels =  round(x,3) 
         lb_meters =  round(x * self.MX,3)
 
         if debug: 
-            print(' get_line_base_pos():  y_eval: {} current_xfitted[y_eval]: {}    MX: {}    lb_meters: {} '.format(y_eval, 
+            print(' get_line_base_pos():  y_eval: {} x[y_eval]: {}    MX: {}    lb_meters: {} '.format(y_eval, 
                     x , self.MX, lb_meters))
         return lb_pixels, lb_meters
                
 
-    def set_slope(self, y_eval = 0, fit_parms = None, debug = False):
-        slope = self.get_slope(y_eval, fit_parms, debug = debug)
+    def set_slope(self, fit_parms = None, y_eval = 0, debug = False):
+        slope = self.get_slope( fit_parms, y_eval, debug = debug)
         self.slope.append(slope)
 
-    def get_slope(self, y_eval = 0, fit_parms = None, debug = False):
+    def get_slope(self, fit_parms = None, y_eval = 0, debug = False):
         if fit_parms is None:
             fit_parms = self.curr_fit
         A,B = fit_parms[0:2] 
@@ -188,20 +205,18 @@ class Line():
         return slope2
 
 
-    def set_radius(self, y_eval = 0 , fit_parms = None, debug = False):
-        cur_radius = self.get_radius(y_eval, fit_parms, debug = debug)
+    def set_radius(self, fit_parms = None, y_eval = 0, debug = False):
+        cur_radius = self.get_radius( fit_parms, y_eval, debug = debug)
         self.radius_history.append( cur_radius )
         self.radius_avg = sum(self.radius_history[-5:])/ len(self.radius_history[-5:]) 
         
 
-
-    def get_radius(self, y_eval, fit_parms  =None, debug = False):
-        if fit_parms is None:
-            fit_parms = self.curr_fit
+    def get_radius(self, fit_parms = None, y_eval = 0, debug = False):
         
         y_eval_MY      = y_eval * self.MY
-        exponents      = np.arange(self.POLY_DEGREE,-1,-1)
+        exponents      = np.arange(self.poly_deg,-1,-1)
         MY_factors     = np.power((1.0 / self.MY), exponents)
+        # print('  fit_parms: {}   exponents: {}   MY_factors: {} '.format(fit_parms, exponents, MY_factors))
         fit_parms_mod  = fit_parms * MY_factors * self.MX
 
         firstDerivParms  = np.polyder(fit_parms_mod, 1)
@@ -209,7 +224,12 @@ class Line():
         secondDerivParms = np.polyder(fit_parms_mod, 2)
         secondDeriv_eval = np.polyval(secondDerivParms, y_eval_MY)
 
-        cur_radius = ((1 + (firstDeriv_eval)**2)** 1.5)/np.absolute(secondDeriv_eval) 
+        if np.all(secondDerivParms == np.zeros_like(secondDerivParms)) :
+            print( ' second deriv is zero ')
+            cur_radius = np.ones_like(y_eval) * 6000
+        else:
+            cur_radius = ((1 + (firstDeriv_eval)**2)** 1.5)/np.absolute(secondDeriv_eval) 
+        
         if debug:
             print(' MY              : ', self.MY,  ' MY_inv: ', 1.0 / self.MY)
             print(' y_eval          : ', y_eval   ,  ' y_eval * MY     : ', y_eval_MY)
@@ -219,8 +239,8 @@ class Line():
             print(' firstDerivParms : ', type(firstDerivParms),' - ', firstDerivParms)
             print(' firstDeriv_eval : ', type(firstDeriv_eval),' - ', firstDeriv_eval)
             print(' secondDerivParms: ', type(secondDerivParms),' - ', secondDerivParms)
-            print(' secondDeriv_eval: ',  type(secondDeriv_eval),' - ',secondDeriv_eval)
-            print(' get_radius2()   : ', cur_radius, ' (m)')
+            print(' secondDeriv_eval: ', type(secondDeriv_eval),' - ',secondDeriv_eval)
+            print(' current radius  : ', cur_radius, ' (m)')
         
         cur_radius = np.clip(cur_radius, 0, 6000).tolist()
         
@@ -229,48 +249,79 @@ class Line():
 
     def fit_polynomial(self, debug = False):
         # y_range_idxs = (self.ally > self.end >  dst_pts_left[0,:,1]) & ( dst_pts_left[0,:,1] >= start) 
-        try:
-            self.curr_fit = np.polyfit(self.ally , self.allx , self.POLY_DEGREE, full=False)
-        except TypeError:
-            # Avoids an error if `left` and `right_fit` are still none or incorrect
-            print('---------------------------------------------------')
-            print('fitPolynomial(): The function failed to fit a line!')
-            print(' current_fit will be set to best_fit               ')
-            print('---------------------------------------------------')
-
-        self.yfound_min     = self.ally.min()
-        self.yfound_max     = self.ally.max()
-        self.yrange_found   = np.linspace(self.ally.min(),  self.ally.max(),  self.ally.max()-self.ally.min()+1, dtype = np.int)    
         
-        xfitted                = np.polyval(self.curr_fit, self.ploty)
-        self.fitted_current    = np.vstack((xfitted, self.ploty))
+        if debug:
+            print()
+            print('\nfit_polynomial: '+self.name+' Lane')
+            print('-'*45)
+            print('  len(allx) {}  len(ally): {} '.format(len(self.allx), len(self.ally)))
 
-        self.current_slope   = self.get_slope(self.y_checkpoints,self.curr_fit)
-        self.current_radius  = self.get_radius(self.y_checkpoints, self.curr_fit   )
+        if len(self.allx) < 200:
+            self.curr_fit = np.copy(self.best_fit_history[-1])
+            # self.poly_deg = self.best_fit[-1].shape[0] -1
+            # print('  *  allx = ally = 0 - using previous best fit --> poly_degree: {} '.format(self.poly_deg))
+            self.allx = np.copy(self.best_allx)
+            self.ally = np.copy(self.best_ally)
+            if debug:
+                print('  No pixels detected - revert to previous best_fit polynomial.')
+        else:
+            x_spread = self.allx.max() - self.allx.min()
+            y_spread = self.ally.max() - self.ally.min()
+            if x_spread < 90 and y_spread < 350:
+                self.poly_deg = self.MIN_POLY_DEGREE
+            else:
+                self.poly_deg = self.POLY_DEGREE
+            
+            # print('  *  x_spread is {}  y_spread: {}  --> poly_degree: {} '.format(x_spread, y_spread, self.poly_deg))
+            
+            try:
+                self.curr_fit = np.polyfit(self.ally , self.allx , self.poly_deg, full=False)
+            except TypeError:
+                # Avoids an error if `left` and `right_fit` are still none or incorrect
+                print('--------------------------------------------------------')
+                print('  fitPolynomial(): The function failed to fit a line!   ')
+                print('  len(allx) {}  len(ally): {} '.format(len(allx), len(ally)))
+                print('  previous best_fit will be used as proposed polynomial ')
+                print('--------------------------------------------------------')
+            finally:
+                if self.poly_deg ==1:
+                    self.curr_fit = np.concatenate(([0.0], self.curr_fit))
+                    self.poly_deg += 1
+                    print(' **  x_spread is {}  y_spread: {}  --> poly_degree reset to : {} '.format(x_spread, y_spread, self.poly_deg))
+
+        allx_min, allx_max = self.allx.min(), self.allx.max()
+        ally_min, ally_max = self.ally.min(), self.ally.max()
+       
+        plot_x = np.round(np.polyval(self.curr_fit, self.plot_y),0).astype(np.int)
+        
+        self.yrange_found  = np.linspace(ally_min,  ally_max,  ally_max - ally_min+1, dtype = np.int)
+        self.proposed_curve = np.vstack((plot_x, self.plot_y))
+        
+        # self.fitted_current= np.vstack((plot_x, self.ploty))
+        self.proposed_fit_history.append(self.curr_fit)
+        self.current_slope   = self.get_slope(self.curr_fit, self.y_checkpoints)
+        self.current_radius  = self.get_radius(self.curr_fit, self.y_checkpoints)
         self.current_linepos = np.polyval(self.curr_fit, self.y_checkpoints)  
         
+        self.pixel_spread_x = allx_max - allx_min + 1
+        self.pixel_spread_y = ally_max - ally_min + 1
+        self.curve_spread_x = plot_x.max() - plot_x.min()+1
+
         if debug:
-            print()
-            print('\nfit_polynomial: '+self.name+'Lane')
-            print('-'*45)
-            print('      ally  min: ', self.ally.min(), ' max():',self.ally.max())
-            print('   xfitted  min: ', round(xfitted.min(),0), ' max():',round(xfitted.max(),0))
-            print('  Proposed poly: ', self.curr_fit)
-            print('    best fitted: ', self.best_fit)
-            print(' current_radius: ', self.current_radius)
-            # print(' xfitted current : ', xfitted.shape, ' - ', xfitted)   
-            # print(' self.fitted_current    : ', self.fitted_current.shape)
-            # print(' self.current_slope     : ', self.current_slope.shape)
-            # print(' self.current_slope_mtrs: ', self.current_slope_mtrs.shape)
-            # print(' self.current_linepos   : ', self.current_linepos.shape)
+            print('  X points(allx)   min : {:6d}   max:  {:6d}  spread: {:6d}'.format(allx_min, allx_max, self.pixel_spread_x ))
+            print('  Y points(ally)   min : {:6d}   max:  {:6d}  spread: {:6d}'.format(ally_min, ally_max, self.pixel_spread_y ))
+            print('  Fitted curve X   min : {:6d}   max:  {:6d}  spread: {:6d}'.format(plot_x.min(), plot_x.max(), self.curve_spread_x))
+            print('  Current best_fit     : ', self.best_fit)
+            print('  Proposed polynomial  : ', self.curr_fit)
+            print('  Current radius       : ', self.current_radius)
 
+        self.assessFittedPolynomial(debug=debug)        
 
-        
     def assessFittedPolynomial(self, debug = False):
-        if debug:
-            print()
-            print('\nAssess Fitted Polynomial for ', self.name, ' Lane:')
-            print('-'*45)    
+        # if debug:
+            # print()
+            # print('\n  fitted Polynomials error computation-  '+self.name+' Lane')
+            # print(' ','-'*45)    
 
         if self.best_fit is None:  
             self.best_fit = np.copy(self.curr_fit)
@@ -279,65 +330,78 @@ class Line():
 
         curr_poly_x = np.polyval(self.curr_fit, self.yrange_found)
         best_poly_x = np.polyval(self.best_fit, self.yrange_found)
-        poly_diffs  = (self.best_fit - self.curr_fit)
         
+        if self.best_fit.shape[0] == self.curr_fit.shape[0]:  
+            poly_diffs  = (self.best_fit - self.curr_fit)
+        else:
+            fit_len = min(self.curr_fit.shape[0], self.best_fit.shape[0])
+            poly_diffs  = (self.best_fit[-fit_len:] - self.curr_fit[-fit_len:])
+        
+        # print(' curr_poly_x ', curr_poly_x)
+        # print(' best_poly_x ', best_poly_x)
+      
         self.RSE    = np.round(np.sqrt(np.sum(poly_diffs**2)),3)                
-        # self.LSE    = np.round(np.sqrt(np.sum((best_poly_x - curr_poly_x)**2)),3)
         self.RMSE   = np.round(np.sqrt(np.sum((best_poly_x - curr_poly_x)**2)/ curr_poly_x.shape[0] ),3)
+        # self.LSE    = np.round(np.sqrt(np.sum((best_poly_x - curr_poly_x)**2)),3)
         
-        if debug:
-            print('**  ALLY  min : {}  max: {}  yrange_found shape: {}  best_poly_x shape: {}  curr_poly_x shape:{}'.format(
-                    self.ally.min(), self.ally.max(), self.yrange_found.shape[0] , best_poly_x.shape[0], curr_poly_x.shape[0] ))
-            print('    PixelRatio: {:8.1f}  Avg:{:8.1f}  History: {} '.format(self.pixelRatio[0] , self.pixelRatioAvg , self.pixelRatio[-12:]))
-            # print('    LS  Error : {:8.1f}  Avg:{:8.1f}  History: {} '.format(self.LSE , self.avg_LSE , self.LSE_history[-12:]))
-            print('    RMS Error : {:8.1f}  Avg:{:8.1f}  History: {} '.format(self.RMSE, self.avg_RMSE, self.RMSE_history[-12:]))
-            print('    RSE Error : {:8.1f}  Avg:{:8.1f}  History: {} '.format(self.RSE , self.avg_RSE , self.RSE_history[-12:]))
-            print()
-
+        
         self.RSE_history.append(self.RSE)
-        # self.LSE_history.append(self.LSE)
         self.RMSE_history.append(self.RMSE)
+        # self.LSE_history.append(self.LSE)
 
+        self.prev_avg_pixelRatio = self.avg_pixelRatio
         self.prev_avg_RSE = self.avg_RSE
-        self.avg_RSE      = np.round(sum(self.RSE_history[-10:])/ len(self.RSE_history[-10:]),3)
-        # self.avg_LSE      = np.round(sum(self.LSE_history[-10:])/ len(self.LSE_history[-10:]),3)
-        self.avg_RMSE     = np.round(sum(self.RMSE_history[-10:])/len(self.RMSE_history[-10:]),3)
-        self.pixelRatioAvg= np.round(sum(self.RSE_history[-10:])/ len(self.RSE_history[-10:]),3) 
+        self.prev_avg_RMSE = self.avg_RMSE
 
-        RSE_threshold =  max(self.RSE_THRESHOLD,  self.avg_RSE)
+        self.avg_pixelRatio= np.round(sum(self.pixelRatio[-10:])/ len(self.pixelRatio[-10:]),3) 
+        self.avg_RSE      = np.round(sum(self.RSE_history[-10:])/ len(self.RSE_history[-10:]),3)
+        self.avg_RMSE     = np.round(sum(self.RMSE_history[-10:])/len(self.RMSE_history[-10:]),3)
+        # self.avg_LSE      = np.round(sum(self.LSE_history[-10:])/ len(self.LSE_history[-10:]),3)
+
+        # RSE_threshold =  min(self.RSE_THRESHOLD,  self.avg_RSE)
+        # self.RSE_threshold_history.append(RSE_threshold)
+        
+        RSE_threshold = self.RSE_THRESHOLD
         self.RSE_threshold_history.append(RSE_threshold)
         
-        if self.RSE > RSE_threshold :
-            if debug:
-                print('  > REJECT polynomial - RSE(proposed_fit, best_fit)  >  RSE_THRESHOLD ', self.RSE , ' > ', RSE_threshold)
-            rc = False
-        else:
-            if debug:
-                print('  > ACCEPT polynomial - RSE(proposed_fit, best_fit)  <=  RSE_THRESHOLD ', self.RSE , ' <= ', RSE_threshold)
-            rc = True
-        
-        return rc
+        # msg1 ='  > RSE(proposed_fit, best_fit)  {}  -  RSE_THRESHOLD {}'.format(Lane.RSE, RSE_threshold) 
+        # if (Lane.RSE < RSE_threshold):    ## or (self.acceptHistory[-1] < 0):
+            # Lane.acceptPolynomial =  True
+        # else:
+            # Lane.acceptPolynomial =  False
+            # msg1 = '  > REJECT polynomial - RSE(proposed_fit, best_fit)  {}  >   RSE_THRESHOLD {} '.format(Lane.RSE, RSE_threshold)
+            
+        if debug:
+            
+            print('  Pxl Ratio : {:7.1f}  Prev Avg: {:7.1f}  Avg:{:7.1f}  H: {} '.format(self.pixelRatio[-1], self.prev_avg_pixelRatio , 
+                     self.avg_pixelRatio , self.pixelRatio[-12:]))
+            print('  RMS Error : {:7.1f}  Prev Avg: {:7.1f}  Avg:{:7.1f}  H: {} '.format(self.RMSE, self.prev_avg_RMSE, self.avg_RMSE, 
+                     self.RMSE_history[-11:]))
+            print('  RSE Error : {:7.1f}  Prev Avg: {:7.1f}  Avg:{:7.1f}  H: {} '.format(self.RSE , self.prev_avg_RSE , self.avg_RSE , 
+                     self.RSE_history[-11:]))
+            # print('  LS  Error : {:8.1f}  Avg:{:8.1f}  History: {} '.format(self.LSE , self.avg_LSE , self.LSE_history[-12:]))
+            print('  RSE(proposed_fit, best_fit)  {:7.1f}  -  RSE_THRESHOLD {:7.1f}'.format(self.RSE, self.RSE_THRESHOLD))
+        return True
         
         
     def acceptFittedPolynomial(self, debug= False, debug2 = False):
     
         if debug:
             print()
-            print('\nAccept Fitted Polynomial for ', self.name, ' Lane:')
+            print('Accept Fitted Polynomial for '+self.name+' Lane')
             print('-'*45)    
             print(' Accpeted frames since last rejected : ', self.ttlAcceptedFramesSinceRejected)
-            if len(self.curr_fit_history) > 0 :   
-                print(' Previous fit      : ', self.curr_fit_history[-1])
-            print(' Proposed polyfit  : ', self.curr_fit)
-            print(' Current best_fit  : ', self.best_fit)
+            # if len(self.curr_fit_history) > 0 :   
+                # print(' Previous fit      : ', self.curr_fit_history[-1])
+            print(' Proposed fit[-2]      : ', self.proposed_fit_history[-2])
+            print(' Current  Proposed fit : ', self.proposed_fit_history[-1])
+            print(' Current  best_fit     : ', self.best_fit)
         
         self.detected = True
         self.ttlAccepted += 1
         self.ttlRejectedFramesSinceDetected = 0 
         self.ttlAcceptedFramesSinceRejected += 1
 
-        # self.set_fit(debug = debug2)
-        self.curr_fit_history.append(self.curr_fit)
         self.compute_best_fit.append(self.curr_fit)
 
         self.set_best_fit(debug = debug2)
@@ -349,13 +413,23 @@ class Line():
         self.x_base.append(int(self.get_linepos( y_eval= self.y_src_bot)[0]))
         
         if debug: 
-            print(' New best_fit      : ', self.best_fit)
-            print(' RSE(current, best): {:8.2f}   prev avg_RSE: {:8.2f}    New avg_RSE: {:10.2f} '.format( 
+            print(' New best_fit          : ', self.best_fit)
+            print(' RSE(current, best)    : {:8.2f}   prev avg_RSE: {:8.2f}    New avg_RSE: {:10.2f} '.format( 
                 self.RSE,  self.prev_avg_RSE, self.avg_RSE))
-            print(' Old x_base        : {:8d}       New x_base: {:8d} '.format( self.x_base[-2], self.x_base[-1]))
+            print(' Old x_base            : {:8d}       New x_base: {:8d} '.format( self.x_base[-2], self.x_base[-1]))
 
 
     def rejectFittedPolynomial(self, debug= False, debug2 = False):
+        if debug:
+            print()
+            print('Reject Fitted Polynomial for '+self.name+' Lane')
+            print('-'*45)    
+            print(' Rejected frames since last accepted : ', self.ttlRejectedFramesSinceDetected)
+            # if len(self.curr_fit_history) > 0 :   
+                # print(' Previous fit      : ', self.curr_fit_history[-1])
+            print(' Proposed fit[-2]      : ', self.proposed_fit_history[-2])
+            print(' Current  Proposed fit : ', self.proposed_fit_history[-1])
+            print(' Current  best_fit     : ', self.best_fit)
     
         self.detected = False
         self.ttlRejected += 1
@@ -363,10 +437,7 @@ class Line():
         self.ttlAcceptedFramesSinceRejected =  0
         
         self.curr_fit = np.copy(self.best_fit)
-        
-        # self.set_fit(debug = debug2)
-        self.curr_fit_history.append(self.curr_fit)
-        
+        # self.poly_deg = self.best_fit.shape[0] - 1
         self.set_best_fit(debug = debug2)
 
         self.set_fitted_current()
@@ -375,36 +446,30 @@ class Line():
         self.set_lane_stats()
         self.x_base.append(int(self.get_linepos( y_eval= self.y_src_bot)[0]))
 
-        if debug:
-            print()
-            print('\nReject Fitted Polynomial for ', self.name,' Lane:')
-            print('-'*45)    
-            print(' Consecutive rejected: ', self.ttlRejectedFramesSinceDetected)
-            print(' fit history length  : ', len(self.curr_fit_history), '  best_fit_history length   : ', len(self.best_fit_history))
-            print(' New Best fit        : ', self.best_fit)
-            print(' RSE(current, best)  : {:10.3f}   prev avg_RSE: {:10.3f}    best_avg_RSE: {:10.3f} '.format( 
-                self.RSE, self.prev_avg_RSE, self.avg_RSE))
-            print(' Old x_base          : {:8d}      New x_base: {:8d} '.format( self.x_base[-2], self.x_base[-1]))
+        if debug: 
+            print(' New best_fit          : ', self.best_fit)
+            print(' RSE(current, best)    : {:8.2f}   prev avg_RSE: {:8.2f}    New avg_RSE: {:10.2f} '.format( 
+                self.RSE,  self.prev_avg_RSE, self.avg_RSE))
+            print(' Old x_base            : {:8d}       New x_base: {:8d} '.format( self.x_base[-2], self.x_base[-1]))
 
-        
             
     def set_lane_stats(self, debug = False):
-        self.set_slope(self.y_src_bot, self.best_fit, debug = debug)
-        self.set_radius(self.y_src_bot, self.best_fit, debug = debug)
-        self.set_linepos(self.y_src_bot, self.best_fit, debug = debug)
-        self.best_slope   = self.get_slope(self.y_checkpoints,self.best_fit)
-        self.best_radius  = self.get_radius(self.y_checkpoints, self.best_fit)
+        self.set_slope(self.best_fit, self.y_src_bot, debug = debug)
+        self.set_radius(self.best_fit, self.y_src_bot, debug = debug)
+        self.set_linepos(self.best_fit, self.y_src_bot, debug = debug)
+        self.best_slope   = self.get_slope(self.best_fit, self.y_checkpoints,)
+        self.best_radius  = self.get_radius(self.best_fit, self.y_checkpoints,)
         self.best_linepos = np.polyval(self.best_fit, self.y_checkpoints) 
             
             
- 
     def set_best_fit(self, debug = False):
         ## Calculate new best_fit, using recently added polynomial.
 
         # self.best_fit  = sum(self.compute_best_fit)/ len(self.compute_best_fit) 
         self.best_fit  = (self.best_fit + self.curr_fit)/2
-
         self.best_fit_history.append(self.best_fit)
+        self.best_allx = np.copy(self.allx)
+        self.best_ally = np.copy(self.ally)
 
         if debug: 
             print(' set_best_fit()')
@@ -415,8 +480,8 @@ class Line():
                 
 
     def set_fitted_current(self, debug = False):
-        xfitted = np.polyval(self.curr_fit, self.ploty)
-        self.fitted_current   = np.vstack((xfitted, self.ploty))
+        x = np.polyval(self.curr_fit, self.plot_y)
+        self.fitted_current   = np.vstack((x, self.plot_y))
         self.fitted_history.append(self.fitted_current)        
         
         if debug: 
@@ -424,16 +489,16 @@ class Line():
 
 
     def set_fitted_best(self, debug = False):
-        xfitted = np.polyval(self.best_fit, self.ploty)
-        self.fitted_best  = np.vstack((xfitted, self.ploty))
+        x = np.polyval(self.best_fit, self.plot_y)
+        self.fitted_best  = np.vstack((x, self.plot_y))
         self.fitted_best_history.append(self.fitted_best) 
 
         if debug: 
-            print(' set_best_xfitted() - length: ', len(self.fitted_best_history), ' shape: ', self.fitted_best.shape)
+            print(' set_fitted_best() - length: ', len(self.fitted_best_history), ' shape: ', self.fitted_best.shape)
 
 
     def reset_best_fit(self, debug = False):
         if debug:
-            print(' Clear best fit and history for ', self.name)
+            print('    Clear best fit and history for ', self.name)
         self.best_fit = np.copy(self.curr_fit)
         # compute_best_fit.clear()

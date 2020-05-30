@@ -12,10 +12,7 @@ import pickle
 import pprint 
 import collections
 pp = pprint.PrettyPrinter(indent=2, width=100)
-
-print(os.getcwd())
-print('Loading utils.py')
-# pp.pprint(sys.path)
+print(' Loading utils.py - cwd:', os.getcwd())
   
 # from classes.line import Line ## import classes.line as line
 import classes.line
@@ -117,7 +114,7 @@ def display_two(img1, img2, title1 = None , title2 =None,
         ax1.plot(img1)
     else:
         ax1.imshow(img1, cmap = cmap)
-    ax1.set_title(title1, fontsize=15)
+    ax1.set_title(title1)
     ax1.minorticks_on()
     
     if grid1 is not None:
@@ -129,7 +126,7 @@ def display_two(img1, img2, title1 = None , title2 =None,
         ax2.plot(img2)
     else:
         ax2.imshow(img2, cmap = cmap)
-    ax2.set_title(title2, fontsize=15)
+    ax2.set_title(title2)
     ax2.minorticks_on()
     
     if grid2 is not None:
@@ -320,8 +317,9 @@ def displayPolynomial(input_img, leftInput, rightInput, **kwargs):
     end          = kwargs.get('end'  , input_img.shape[0])     
     debug        = kwargs.get('debug', False)
     iteration    = kwargs.get('iteration', -1)
+    thickness    = kwargs.get('thickness',  1)
     
-    
+    img_height, img_width  = input_img.shape[0:2]
     if isinstance(leftInput, classes.line.Line) :
         # print(' displayPolynomial(): Input is a Line object')
         LLane  = leftInput.fitted_history[iteration][0,start:]
@@ -354,12 +352,84 @@ def displayPolynomial(input_img, leftInput, rightInput, **kwargs):
         
     colorRGBA = colors.to_rgba_array(color)[0]*255    
     result = np.copy(input_img)
-    result[ left_y ,  left_x] = colorRGBA
-    result[right_y , right_x] = colorRGBA
+    for i in range(0,thickness,1):
+        plot_left_x  = np.clip(left_x + thickness , 0, img_width - 1)
+        plot_right_x = np.clip(right_x + thickness, 0, img_width - 1)
+        # print(' plot_left_x : ', plot_left_x.min(), plot_left_x.max(), ' plot_right_x:', plot_right_x.min(), plot_right_x.max())
+        result[ left_y ,  plot_left_x ] = colorRGBA
+        result[right_y ,  plot_right_x] = colorRGBA
     
     return  result 
 
 
+
+def displayPolySearchRegion(input_img, leftInput, rightInput, **kwargs):
+    assert type(leftInput) == type(rightInput), 'Second and Third parms must have matching types'    
+    # print('displayPolynomial : ', input_img.shape)
+    wcolor        = kwargs.get('color', 'springgreen') 
+    start         = kwargs.get('start', 0)  
+    end           = kwargs.get('end'  , input_img.shape[0]) 
+    debug         = kwargs.get('debug', False)
+    search_margin = kwargs.get('search_margin', 100)
+    iteration     = kwargs.get('iteration', -1)
+
+    if debug:
+        print()
+        print('DisplayPolySearchRegion() ')
+        print('  Search margin : ', search_margin)
+    
+    if isinstance(leftInput, classes.line.Line) :
+        # print(' displayPolySearchRegion(): input is a Line object')
+        LLane = leftInput.fitted_best
+        RLane = rightInput.fitted_best
+
+    elif isinstance(leftInput, np.ndarray):
+        # print(' displayPolySearchRegion(): input is a numpy array (left_fitx/right_fitx)', LLane.shape, RLane.shape)
+        LLane = leftInput
+        RLane = rightInput
+    else:
+        print(' displayPolySearchRegion(): Invalid input parm data type: ', type(leftInput), ' R:' ,type(rightInput))
+
+    # left_idx  = (end > LLane[1,:]) & (LLane[1,:] >= start) 
+    # right_idx = (end > RLane[1,:]) & (RLane[1,:] >= start) 
+    # left_x    = np.int_(LLane[0,left_idx])
+    # left_y    = np.int_(LLane[1,left_idx])
+    # right_x   = np.int_(RLane[0,right_idx])
+    # right_y   = np.int_(RLane[1,right_idx])
+
+    left_x    = LLane[0,:]
+    left_y    = LLane[1,:]
+    right_x   = RLane[0,:]
+    right_y   = RLane[1,:]
+
+       
+    # Generate a polygon to illustrate the search window area
+    # And recast the x and y points into usable format for cv2.fillPoly()
+    
+    left_line_window1 = np.array([np.transpose(np.vstack([left_x - search_margin, left_y]))])
+    left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_x + search_margin, left_y])))])
+    left_line_pts     = np.hstack((left_line_window1, left_line_window2))
+    
+    right_line_window1 = np.array([np.transpose(np.vstack([right_x - search_margin, right_y]))])
+    right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_x + search_margin, right_y])))])
+    right_line_pts     = np.hstack((right_line_window1, right_line_window2))
+
+    if debug:
+        # print('  display using iteration: ', iteration, ' of xfitted_history')
+        print('  left_fitx     : ', left_x.shape    , '  right_fitx    : ', right_x.shape)
+        print('  left_line_pts :' , left_line_pts.shape, '  right_line_pts: ' , right_line_pts.shape)
+    
+    wcolor = colors.to_rgba_array('springgreen')[0] * 255    
+    
+    # Create an blank array to draw the search region on 
+    # Draw the search region onto the warped blank image
+    window_img = np.zeros_like(input_img)
+    cv2.fillPoly(window_img, np.int_([left_line_pts]), wcolor)
+    cv2.fillPoly(window_img, np.int_([right_line_pts]), wcolor)
+    result = cv2.addWeighted(input_img, 1, window_img, 0.6, 0)
+    
+    return result
+    
 
 def displayDetectedRegion(input_img, leftInput, rightInput,  Minv, **kwargs):
     ''' 
@@ -372,7 +442,8 @@ def displayDetectedRegion(input_img, leftInput, rightInput,  Minv, **kwargs):
 
     # print(' Kwargs: ', kwargs)
     color         = kwargs.get('color', 'green') 
-    beta          = kwargs.get('beta', 0.5) 
+    alpha         = kwargs.get('alpha', 1.0) 
+    beta          = kwargs.get('beta' , 0.5) 
     disp_start    = kwargs.get('disp_start',  0)  
     disp_end      = kwargs.get('disp_end'  , input_img.shape[0]) 
     debug         = kwargs.get('debug', False)
@@ -423,7 +494,7 @@ def displayDetectedRegion(input_img, leftInput, rightInput,  Minv, **kwargs):
     cv2.polylines(detectionOverlay, (disp_pts_right[:,:-10]), False, (0,0,255), thickness=10, lineType = cv2.LINE_8)
     
     # Combine the unwarped detected lanes result with the original image
-    result = cv2.addWeighted(input_img, 1, detectionOverlay, beta, 0)
+    result = cv2.addWeighted(input_img, alpha , detectionOverlay, beta, 0)
 
     if debug:
         # print(' iteration  : ', iteration,  ' start: ', start, '   end: ', end)
@@ -573,64 +644,7 @@ def region_of_interest(img, vertices, debug = False):
     masked_image = cv2.bitwise_and(img, mask)
     return masked_image
      
-def unwarpImage(img, nx, ny, cam, dst, debug = False):
-    # 1) Undistort using mtx and dist
-    # 2) Convert to grayscale
-    # 3) Find the chessboard corners
-    # 4) If corners found: 
-            # a) draw corners
-            # b) define 4 source points src = np.float32([[,],[,],[,],[,]])
-                 #Note: you could pick any four of the detected corners 
-                 # as long as those four corners define a rectangle
-                 #One especially smart way to do this would be to use four well-chosen
-                 # corners that were automatically detected during the undistortion steps
-                 #We recommend using the automatic detection of corners in your code
-            # c) define 4 destination points dst = np.float32([[,],[,],[,],[,]])
-            # d) use cv2.getPerspectiveTransform() to get M, the transform matrix
-            # e) use cv2.warpPerspective() to warp your image to a top-down view
-    
-    ## 1. UNDISTORT 
-    undist = cv2.undistort(img, cam.cameraMatrix, cam.distCoeffs, None, cam.cameraMatrix)
-    
-    ## 2. Convert to Gray Scale
-    imgGray = cv2.cvtColor(undist, cv2.COLOR_BGR2GRAY)
 
-    ## 3. Find corners
-    ret, corners = cv2.findChessboardCorners(imgGray, (nx, ny), cv2.CALIB_CB_ADAPTIVE_THRESH)
-    if ret:
-        if debug:
-            print(' img shape: ',undist.shape[1::-1])
-            print(' ret    : ', ret)
-            if ret:
-                print(' Corners: ', corners.shape)
-                # print(corners)
-
-        cornerCount = corners.shape[0]
-        if (cornerCount % nx) != 0:
-            print(' Not all corners have been detected!! nx:', nx, ' ny: ', ny, ' corners detected: ', cornerCount)
-            M = np.eye(3)
-        else:
-            ## 4a. if corners found Draw corners 
-            cv2.drawChessboardCorners(undist, (nx, ny), corners, ret)        
-            
-            ## 4b. define 4 source pointsl        
-            src = np.float32([corners[0,0], corners[nx-1,0], corners[nx*(ny-1),0], corners[nx*ny-1,0]])
-
-            ## 4c. define 4 destination points
-            
-            ## 4d. get M tranform matrix     
-            M = cv2.getPerspectiveTransform(src, dst)
-
-            if debug: 
-                print('src: ', type(src), src.shape, ' - ',  src)
-                print('dst: ', type(dst), dst.shape, ' - ',  dst)
-                print(' M:', M.shape)
-    else:
-        M = np.eye(3)
-        
-    ## 4e. warp image to top-down view
-    warped = cv2.warpPerspective(undist, M, undist.shape[1::-1], flags=cv2.INTER_LINEAR)
-    return undist, warped, M
     
 
 def pixelHistogram(img, RoI_top, RoI_bot, RoI_left = 0, RoI_right = 0, debug = False):
@@ -660,28 +674,25 @@ def pixelHistogram(img, RoI_top, RoI_bot, RoI_left = 0, RoI_right = 0, debug = F
 
 
 def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
-    histRange       = kwargs.get('histRange'     ,  None)  
-    debug           = kwargs.get('debug'         ,  False)  
-    debug2          = kwargs.get('debug2'        ,  False)  
-    minpix          = kwargs.get('minpix'        ,  MINPIX)  
-    maxpix          = kwargs.get('maxpix'        ,  0)  
-    nwindows        = kwargs.get('nwindows'      ,  NWINDOWS)  
-    window_margin   = kwargs.get('window_margin' ,  WINDOW_SEARCH_MARGIN)
-    # pixel_thr       = kwargs.get('pixel_thr'      ,  PIXEL_THRESHOLD )
-    # pixel_ratio_thr = kwargs.get('pixel_ratio_thr',  PIXEL_RATIO_THRESHOLD)
-
-    window_color    = kwargs.get('window_color'  ,  'green')  
-    histDepthRange  = kwargs.get('histDepthRange',  binary_warped.shape[0]) 
-    histWidthRange  = kwargs.get('histWidthRange',  binary_warped.shape[1])  
-    reset_x_base    = kwargs.get('reset_x_base'  ,  True)  
+    histRange         = kwargs.get('histRange'     ,  None)  
+    debug             = kwargs.get('debug'         ,  False)  
+    debug2            = kwargs.get('debug2'        ,  False)  
+    minpix            = kwargs.get('minpix'        ,  MINPIX)  
+    maxpix            = kwargs.get('maxpix'        ,  0)  
+    nwindows          = kwargs.get('nwindows'      ,  NWINDOWS)  
+    search_margin     = kwargs.get('search_margin' ,  WINDOW_SEARCH_MARGIN)
+    window_color      = kwargs.get('window_color'  ,  'green')  
+    # histDepthRange    = kwargs.get('histDepthRange',  binary_warped.shape[0]) 
+    histWidthRange    = kwargs.get('histWidthRange',  binary_warped.shape[1])  
+    reset_search_base = kwargs.get('reset_search_base'  ,  True)  
 
     img_height = binary_warped.shape[0]
     img_width  = binary_warped.shape[1]
     
-    Left_lower_margin   = window_margin 
-    Left_higher_margin  = window_margin 
-    Right_lower_margin  = window_margin  
-    Right_higher_margin = window_margin  
+    Left_lower_margin   = search_margin 
+    Left_higher_margin  = search_margin 
+    Right_lower_margin  = search_margin  
+    Right_higher_margin = search_margin  
 
     window_height = img_height//nwindows
     
@@ -690,10 +701,12 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
     right_line_inds = []
 
     if maxpix == 0 :
-        maxpix = (window_height * 2 * window_margin)
+        maxpix = (window_height * 2 * search_margin)
 
-    ttlSearchPixels = (window_height * 2 * window_margin) * nwindows
-    
+    ttlImagePixels = img_height * img_width
+    laneSearchPixels = (window_height * 2 * search_margin) * nwindows
+    ttlSearchPixels = 2 * laneSearchPixels
+
     # Create an output image to draw on and visualize the result
     out_img = np.dstack((binary_warped , binary_warped, binary_warped,  np.ones_like(binary_warped)))
     out_img *= 255
@@ -710,10 +723,10 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
         print('find_lane_pixels()' )
         print('-'*20) 
         print(' NWindows: {}   window search margi : {}   windows_width: {}   window_height:  {}    minpix: {}    maxpix : {} '.format(
-                nwindows, window_margin ,  2* window_margin , window_height,  minpix,  maxpix))
+                nwindows, search_margin ,  2* search_margin , window_height,  minpix,  maxpix))
         if len(LLane.x_base) > 1:
-            print(' Prev-1   X Base Left      : {}  right: {}'.format(LLane.x_base[-2], RLane.x_base[-2]))
-        print(' Previous X Base Left      : {}  right: {}'.format(LLane.x_base[-1], RLane.x_base[-1]))
+            print(' Prev-2   X Base Left      : {}  right: {}'.format(LLane.x_base[-2], RLane.x_base[-2]))
+        print(' Prev-1   X Base Left      : {}  right: {}'.format(LLane.x_base[-1], RLane.x_base[-1]))
         print()
 
     # Take a histogram of the bottom half of the image    
@@ -723,24 +736,29 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
 
     histLeft  = max(img_width//2 - histWidthRange, 0)  
     histRight = min(img_width//2 + histWidthRange, img_width)  
-    histTop   = min(histDepthRange, img_height)
-    histBot   = LLane.y_src_bot 
+    histTop   = 3*img_height //4  ## min(histDepthRange, img_height)
+    histBot   = img_height 
     
     histogram = np.sum(binary_warped[histTop : histBot, histLeft : histRight], axis=0)
     hg_shape_before = histogram.shape[0]
-
-    # histogram = np.sum(binary_warped[2*binary_warped.shape[0]//3:, histLeft:histRight], axis=0)
-    
-
     histogram = np.pad(histogram, (histLeft, binary_warped.shape[1]-histRight))
     midpoint  = np.int(histogram.shape[0]//2)
 
 
     # if (LLane.x_base == 0) and (RLane.x_base == 0):
-    if reset_x_base:
-        LLane.x_base.append(np.argmax(histogram[:midpoint])) 
-        RLane.x_base.append(np.argmax(histogram[midpoint:]) + midpoint)
-
+    if reset_search_base:
+        print(' reset_x_base ', reset_search_base)
+        # LLane.x_base.append(np.argmax(histogram[:midpoint])) 
+        # RLane.x_base.append(np.argmax(histogram[midpoint:]) + midpoint)
+        win_xleft_center  =  np.argmax(histogram[:midpoint]) 
+        win_xright_center =  np.argmax(histogram[midpoint:]) + midpoint
+    else:
+        win_xleft_center  = LLane.x_base[-1]
+        win_xright_center = RLane.x_base[-1]
+        lane_distance     = RLane.x_base[-1] - LLane.x_base[-1]
+    
+    lane_distance = win_xright_center - win_xleft_center
+    
     ##-------------------------------------------------------------------------------------------------
     ## Reset Pixels per Meter conversion factor to match detected lanes 
     ##------------------------------------------------------------------------------------------------
@@ -750,28 +768,26 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
 
   
     # Current positions to be updated later for each window in nwindows
-    win_xleft_center  = LLane.x_base[-1]
-    win_xright_center = RLane.x_base[-1]
-    lane_distance     = RLane.x_base[-1] - LLane.x_base[-1]
     
     # LLane.set_MX(denom = lane_distance)
     # RLane.set_MX(denom = lane_distance)
 
     
     if debug:
-        print(' reset x_base using histogram : ', reset_x_base)
+        print(' reset search base            : ', reset_search_base)
         print(' histogram before padding     : {:6d}    After: {:6d}    Midpoint: {:6d}'.format(hg_shape_before, histogram.shape[0], midpoint)  )
         print(' histRange  :             Left: {:6d}    Right: {:6d}    Top: {:6d}    Bottom: {:6d}'.format(histLeft, histRight, histTop, histBot))
-        print(' Histogram Max left       Left: {:6d}    Right: {:6d}'.format(np.argmax(histogram[:midpoint]),np.argmax(histogram[midpoint:])))
-        print(' New X Base Left          Left: {:6d}    Right: {:6d}'.format(LLane.x_base[-1], RLane.x_base[-1]))
-        print('             MX Left: {:6.4f}    Right: {:6.4f} {:10s}             MY Left: {:6.4f}    Right: {:6.4f}'.format(
-                round(LLane.MX,4), round(RLane.MX,4), '', round(LLane.MY,4), round(RLane.MY,4)))
-        print('   MX_nominator Left: {:6.2f}    Right: {:6.2f} {:10s}   MY_nominator Left: {:6.2f}    Right: {:6.2f}'.format(
-                round(LLane.MX,4), round(RLane.MX,4), '', LLane.MY_nom     , RLane.MY_nom))
-        print(' MX_denominator Left: {:6.2f}    Right: {:6.2f} {:10s} MY_denominator Left: {:6.2f}    Right: {:6.2f}'.format(
-                LLane.MX_denom   , RLane.MX_denom   , '', LLane.MY_denom   , RLane.MY_denom))
-        print(' Nonzero Pxls Count         X : {:6d}      Y  : {:6d}'.format(nonzerox.shape[0] , nonzeroy.shape[0]))
+        print(' Prev frame x_base        Left: {:6d}    Right: {:6d}'.format(LLane.x_base[-1], RLane.x_base[-1]))
+        print(' max x  from histogram    Left: {:6d}    Right: {:6d}'.format(np.max(histogram[:midpoint]),np.max(histogram[midpoint:])))
+        print(' x_base from histogram    Left: {:6d}    Right: {:6d}'.format(np.argmax(histogram[:midpoint]),np.argmax(histogram[midpoint:]+midpoint)))
         print(' Search window center X - Left: {:6d}    Right: {:6d}'.format(win_xleft_center  , win_xright_center))
+        print()
+        print(' MX Left            : {:6.4f}  Right: {:6.4f} {:10s}   MY Left            : {:6.4f}    Right: {:6.4f}'.format(
+                round(LLane.MX,4), round(RLane.MX,4), '', round(LLane.MY,4), round(RLane.MY,4)) )
+        print(' MX_nominator Left  : {:6.2f}  Right: {:6.2f} {:10s}   MY_nominator Left  : {:6.2f}    Right: {:6.2f}'.format(
+                round(LLane.MX,4), round(RLane.MX,4), '', LLane.MY_nom     , RLane.MY_nom))
+        print(' MX_denominator Left: {:6.2f}  Right: {:6.2f} {:10s}   MY_denominator Left: {:6.2f}    Right: {:6.2f}'.format(
+                LLane.MX_denom   , RLane.MX_denom   , '', LLane.MY_denom   , RLane.MY_denom))
         print()
         print('-'*140)
         print('|                 |               Left Sliding Windows                      |                  Right Sliding Windows                       |')
@@ -808,11 +824,11 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
 
 
         ###------------------------------------------------------------------------------------
-        ### UDACITY SOLUTION: Identify the nonzero pixels in x and y within the window ###
-        # good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
-        # (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
-        # good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
-        # (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
+        # UDACITY SOLUTION: Identify the nonzero pixels in x and y within the window ###
+        #    good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
+        #    (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
+        #    good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
+        #    (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
         ###------------------------------------------------------------------------------------
 
         # Append these indices to the lists
@@ -848,10 +864,10 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
             print('| {:3d} | {:3d} - {:3d} | {:3d} - {:3d} - {:3d} | {:6d} | {:6d} | {:6d} |{:12s}| {:4d} - {:4d} - {:4d} |'\
                   ' {:6d} | {:6d} | {:6d} |{:14s}|'.format(
                     window, win_y_low, win_y_high,  
-                    win_xleft_low , old_win_xleft_ctr , win_xleft_high, left_x_inds[0].shape[0], left_y_inds[0].shape[0], 
-                    good_left_inds.shape[0], left_msg,
-                    win_xright_low, old_win_xright_ctr, win_xright_high, right_x_inds[0].shape[0], right_y_inds[0].shape[0],
-                    good_right_inds.shape[0], right_msg))
+                    win_xleft_low , old_win_xleft_ctr , win_xleft_high, 
+                    left_x_inds[0].shape[0], left_y_inds[0].shape[0], good_left_inds.shape[0], left_msg,
+                    win_xright_low, old_win_xright_ctr, win_xright_high, 
+                    right_x_inds[0].shape[0], right_y_inds[0].shape[0], good_right_inds.shape[0], right_msg))
         
         shift_amount = 15
 
@@ -871,91 +887,90 @@ def find_lane_pixels(binary_warped, LLane, RLane, **kwargs):
         print('-'*140)
 
     # Concatenate the arrays of indices (previously was a list of lists of pixels)
-    # try:
-    #     left_line_inds  = np.concatenate(left_line_inds)
-    #     right_line_inds = np.concatenate(right_line_inds)
-    # except ValueError:
-    #     # Avoids an error if the above is not implemented fully
-    #     print(' concatenate not working ')
-    #     rc = 0 
-    # else:
-    #     # Extract left and right line pixel positions
-    #     LLane.set_linePixels(nonzerox[left_line_inds], nonzeroy[left_line_inds])
-    #     RLane.set_linePixels(nonzerox[right_line_inds], nonzeroy[right_line_inds])
-    #     rc = 1
-
     left_line_inds  = np.concatenate(left_line_inds)
     right_line_inds = np.concatenate(right_line_inds)
     LLane.set_linePixels(nonzerox[left_line_inds], nonzeroy[left_line_inds])
     RLane.set_linePixels(nonzerox[right_line_inds], nonzeroy[right_line_inds])
     
-    LLane.pixelCount =  left_line_inds.shape[0]
-    RLane.pixelCount = right_line_inds.shape[0]    
-    leftPixelRatio   = round(LLane.pixelCount*100/ttlSearchPixels,2)
-    rightPixelRatio  = round(RLane.pixelCount*100/ttlSearchPixels,2)
-    imgPixelRatio    = round( (LLane.pixelCount + RLane.pixelCount)*100/nonzerox.shape[0] , 2)
+    ttlImageNZPixels = nonzerox.shape[0]    
+    LLane.pixelCount.append( left_line_inds.shape[0])
+    RLane.pixelCount.append(right_line_inds.shape[0])    
+    LLane.pixelRatio.append(round(LLane.pixelCount[-1]*100 / (laneSearchPixels) , 2))
+    RLane.pixelRatio.append(round(RLane.pixelCount[-1]*100 / (laneSearchPixels) , 2))
+
+    ttlLaneNZPixels  = LLane.pixelCount[-1] + RLane.pixelCount[-1]
     
-    LLane.pixelRatio.append(leftPixelRatio)
-    RLane.pixelRatio.append(rightPixelRatio)
-    
+    imgPixelRatio    = round( ttlImageNZPixels*100 / ttlImagePixels , 2)
+    NztoSrchNzRatio  = round( ttlLaneNZPixels*100  / ttlSearchPixels, 2)
+    NztoImageNzRatio = round( ttlLaneNZPixels*100  / (ttlImageNZPixels + 1) , 2)    
+
+        
     if debug:
     # if True:
         print()
         print('find_lane_pixels() - cont''d' )
         print('-'*20)
-        print('   Window search margin: ', window_margin)        
-        print('   Non Zero Pixels     : {:8d}    ttl Search Pixels : {:8d} '.format(nonzerox.shape[0], ttlSearchPixels)) 
-        print('   image Pixel count   : {:8d}    ttl Nonzero Pixels: {:8d}   imgPixelRatio: {:8.2f}'.format(
-                       LLane.pixelCount+RLane.pixelCount, nonzerox.shape[0], imgPixelRatio))
-        print('   Pixel Count Left    : {:8d}    Right: {:8.2f} '.format(LLane.pixelCount, RLane.pixelCount))
-        print('   Pixel Ratio Left    : {:8.2f}    Right: {:8.2f} '.format(leftPixelRatio, rightPixelRatio))   
-   
-   
-    rc = 1
+        print('   Window search margin: ', search_margin)        
+        print('   ttl pixels in image          : {:8d}    NZ pixels in image         : {:8d}   imgPixelRatio   : %{:8.2f}'.format(
+                  ttlImagePixels, ttlImageNZPixels,  imgPixelRatio )) 
+        print('   ttl pixels in search region  : {:8d}    NZ pixels in search region : {:8d}   NZtoSrchNZRatio : %{:8.2f}'.format(
+                  ttlSearchPixels, ttlLaneNZPixels,  NztoSrchNzRatio ))
+        print('   ttl non-zero pixels in image : {:8d}    NZ pixels in search region : {:8d}   NztoImageNzRatio: %{:8.2f}'.format(
+                  ttlImageNZPixels, ttlLaneNZPixels, NztoImageNzRatio ))
+        print('   Detected Pixel Count    Left : {:8d}    Right: {:8d} '.format(LLane.pixelCount[-1], RLane.pixelCount[-1]))    
+        print('   Detected Pixel Ratio    Left : {:8.2f}  Right: {:8.2f}'.format(
+                  LLane.pixelRatio[-1], RLane.pixelRatio[-1]))
 
-    return  rc, out_img, histogram, imgPixelRatio
-    
+    return  out_img, histogram, (imgPixelRatio, NztoSrchNzRatio, NztoImageNzRatio, ttlImageNZPixels, ttlLaneNZPixels)    
 
 def search_around_poly(binary_warped, LLane, RLane, **kwargs):
     '''
     # HYPERPARAMETER
     # search_margin : width of the margin around the previous polynomial to search
     '''
-    debug                 = kwargs.get('debug'          ,  False)  
-    debug2                = kwargs.get('debug2'         ,  False)  
-    search_margin         = kwargs.get('search_margin'  ,  POLY_SEARCH_MARGIN)
-    # pixel_thr             = kwargs.get('pixel_thr'      ,  PIXEL_THRESHOLD )
-    # pixel_ratio_thr       = kwargs.get('pixel_ratio_thr',  PIXEL_RATIO_THRESHOLD)
+    debug          = kwargs.get('debug'          ,  False)  
+    debug2         = kwargs.get('debug2'         ,  False)  
+    histWidthRange = kwargs.get('histWidthRange',  binary_warped.shape[1])      
+    search_margin  = kwargs.get('search_margin'  ,  POLY_SEARCH_MARGIN)
     
-    img_height  = binary_warped.shape[0]
-    img_width   = binary_warped.shape[1]
-    out_img = np.dstack((binary_warped, binary_warped, binary_warped, np.ones_like(binary_warped)))*255
-    ttlSearchPixels = (2 * search_margin) * img_height
+    img_height = binary_warped.shape[0]
+    img_width  = binary_warped.shape[1]
+    out_img    = np.dstack((binary_warped, binary_warped, binary_warped, np.ones_like(binary_warped)))*255
     
+    ttlImagePixels = img_height * img_width
+    laneSearchPixels = (2 * search_margin) * img_height
+    ttlSearchPixels = 2 * laneSearchPixels
+
     # Take a histogram of the bottom half of the image
-    histogram   = np.sum(binary_warped[2*img_height//3:,:], axis=0)
-    midpoint    = np.int(histogram.shape[0]//2)
+    histLeft  = max(img_width//2 - histWidthRange, 0)  
+    histRight = min(img_width//2 + histWidthRange, img_width)  
+    histTop   = 2*img_height // 3  ## min(histDepthRange, img_height)
+    histBot   = LLane.y_src_bot 
+    histogram = np.sum(binary_warped[histTop : histBot, histLeft : histRight], axis=0)
+    hg_shape_before = histogram.shape[0]
+
+    histogram = np.pad(histogram, (histLeft, binary_warped.shape[1]-histRight))
+    midpoint  = np.int(histogram.shape[0]//2)
+
     leftx_base  = np.argmax(histogram[:midpoint]) 
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint     
     
     if debug:
         print('Search_around_poly()')
         print('-'*20)
-        print('   Search margin       : {}     Histogram Midpoint  : {} '.format(search_margin, midpoint))
-        print('   Histogram max   Left: {}     Right: {}'.format(np.argmax(histogram[:midpoint]),np.argmax(histogram[midpoint:])))
+        print('   Search margin       : {}     '.format(search_margin))
+        print('   Histogram max   Left: {}     Right: {}'.format(leftx_base, rightx_base))
         print('   Prev-1   X Base Left: {}     Right: {}'.format(LLane.x_base[-2], RLane.x_base[-2]))
         print('   Previous X Base Left: {}     Right: {}'.format(LLane.x_base[-1], RLane.x_base[-1]))
-        
         
     # Grab activated pixels
     nonzero  = binary_warped.nonzero()
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
-    
     ### Set the area of search based on activated x-values 
     ### within the +/- margin of our polynomial function 
-    fitted_x_left     = np.polyval(LLane.best_fit, nonzeroy) 
-    fitted_x_right    = np.polyval(RLane.best_fit, nonzeroy) 
+    fitted_x_right  = np.polyval(RLane.best_fit, nonzeroy) 
+    fitted_x_left   = np.polyval(LLane.best_fit, nonzeroy) 
 
     left_line_inds  = ( (nonzerox > ( fitted_x_left - search_margin )) & (nonzerox < (fitted_x_left + search_margin)) ).nonzero()
     right_line_inds = ( (nonzerox > (fitted_x_right - search_margin)) & (nonzerox < (fitted_x_right + search_margin)) ).nonzero()
@@ -964,95 +979,34 @@ def search_around_poly(binary_warped, LLane, RLane, **kwargs):
     LLane.set_linePixels(nonzerox [left_line_inds], nonzeroy[left_line_inds])
     RLane.set_linePixels(nonzerox[right_line_inds], nonzeroy[right_line_inds])
 
-    LLane.pixelCount  = left_line_inds[0].shape[0]
-    RLane.pixelCount  = right_line_inds[0].shape[0]
-    leftPixelRatio    = round(LLane.pixelCount*100/ttlSearchPixels,2)
-    rightPixelRatio   = round(RLane.pixelCount*100/ttlSearchPixels,2)
-    imgPixelRatio     = round( (LLane.pixelCount + RLane.pixelCount)*100/nonzerox.shape[0] , 2)
-    
-    LLane.pixelRatio.append(leftPixelRatio)
-    RLane.pixelRatio.append(rightPixelRatio)
+    ttlImageNZPixels = nonzerox.shape[0]    
+    LLane.pixelCount.append( left_line_inds[0].shape[0])
+    RLane.pixelCount.append(right_line_inds[0].shape[0])    
+    LLane.pixelRatio.append(round(LLane.pixelCount[-1]*100 / (laneSearchPixels) , 2))
+    RLane.pixelRatio.append(round(RLane.pixelCount[-1]*100 / (laneSearchPixels) , 2))
+
+    # LLane.LnNztoSRPixelRatio = round(LLane.pixelCount[-1]*100 / (ttlSearchPixels) , 4)
+    # RLane.LnNztoSRPixelRatio = round(RLane.pixelCount[-1]*100 / (ttlSearchPixels) , 4)
+
+    ttlLaneNZPixels   = LLane.pixelCount[-1] + RLane.pixelCount[-1]
+    imgPixelRatio     = round( ttlImageNZPixels*100 / ttlImagePixels , 2)
+    NztoSrchNzRatio   = round( ttlLaneNZPixels*100  / ttlSearchPixels, 2)
+    NztoImageNzRatio  = round( ttlLaneNZPixels*100  / (ttlImageNZPixels + 1) , 2)    
+
 
     out_img  = displayPolySearchRegion(out_img, LLane, RLane, search_margin = search_margin, debug = debug2)      
-    
-    if debug:
-        print()
-        print('   Non Zero Pixels  : {:8d}    ttl Search Pixels : {:8d} '.format(nonzerox.shape[0], ttlSearchPixels)) 
-        print('   image Pixel count: {:8d}    ttl Nonzero Pixels: {:8d}   imgPixelRatio: {:8.2f}'.format(
-                       LLane.pixelCount+RLane.pixelCount, nonzerox.shape[0], imgPixelRatio))
-        print('   Pixel Count Left : {:8d}    Right: {:8d} '.format(LLane.pixelCount, RLane.pixelCount))
-        print('   Pixel Ratio Left : {:8.2f}    Right: {:8.2f} '.format(leftPixelRatio, rightPixelRatio))
-    rc = 1
 
-    return rc,out_img, histogram, imgPixelRatio
-  
-
-
-
-def displayPolySearchRegion(input_img, leftInput, rightInput, **kwargs):
-    assert type(leftInput) == type(rightInput), 'Second and Third parms must have matching types'    
-    # print('displayPolynomial : ', input_img.shape)
-    wcolor        = kwargs.get('color', 'springgreen') 
-    start         = kwargs.get('start', 0)  
-    end           = kwargs.get('end'  , input_img.shape[0]) 
-    debug         = kwargs.get('debug', False)
-    search_margin = kwargs.get('search_margin', 100)
-    iteration     = kwargs.get('iteration', -1)
 
     if debug:
         print()
-        print('DisplayPolySearchRegion() ')
-        print('  Search margin : ', search_margin)
-    
-    if isinstance(leftInput, classes.line.Line) :
-        # print(' displayPolySearchRegion(): input is a Line object')
-        LLane = leftInput.fitted_best
-        RLane = rightInput.fitted_best
+        print('   ttl pixels in image          : {:8d}    NZ pixels in image         : {:8d}   imgPixelRatio   : %{:8.2f}'.format(
+                  ttlImagePixels, ttlImageNZPixels,  imgPixelRatio ))
+        print('   ttl pixels in search region  : {:8d}    NZ pixels in search region : {:8d}   NztoSrchNzRatio : %{:8.2f}'.format(
+                  ttlSearchPixels, ttlLaneNZPixels,  NztoSrchNzRatio))  ##  ttlLaneNZPixels*100/ttlSearchPixels))
+        print('   ttl non-zero pixels in image : {:8d}    NZ pixels in search region : {:8d}   NztoImageNzRatio: %{:8.2f}'.format(
+                  ttlImageNZPixels, ttlLaneNZPixels, NztoImageNzRatio ))  ## ttlLaneNZPixels*100/ttlImageNZPixels))
+        print('   Detected Pixel Count    Left : {:8d}    Right: {:8d} '.format(LLane.pixelCount[-1], RLane.pixelCount[-1]))    
+        print('   Detected Pixel Ratio    Left : {:8.2f}    Right: {:8.2f} '.format(
+                  LLane.pixelRatio[-1], RLane.pixelRatio[-1]))
 
-    elif isinstance(leftInput, np.ndarray):
-        # print(' displayPolySearchRegion(): input is a numpy array (left_fitx/right_fitx)', LLane.shape, RLane.shape)
-        LLane = leftInput
-        RLane = rightInput
-    else:
-        print(' displayPolySearchRegion(): Invalid input parm data type: ', type(leftInput), ' R:' ,type(rightInput))
-
-    # left_idx  = (end > LLane[1,:]) & (LLane[1,:] >= start) 
-    # right_idx = (end > RLane[1,:]) & (RLane[1,:] >= start) 
-    # left_x    = np.int_(LLane[0,left_idx])
-    # left_y    = np.int_(LLane[1,left_idx])
-    # right_x   = np.int_(RLane[0,right_idx])
-    # right_y   = np.int_(RLane[1,right_idx])
-
-    left_x    = LLane[0,:]
-    left_y    = LLane[1,:]
-    right_x   = RLane[0,:]
-    right_y   = RLane[1,:]
-
-       
-    # Generate a polygon to illustrate the search window area
-    # And recast the x and y points into usable format for cv2.fillPoly()
-    
-    left_line_window1 = np.array([np.transpose(np.vstack([left_x - search_margin, left_y]))])
-    left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_x + search_margin, left_y])))])
-    left_line_pts     = np.hstack((left_line_window1, left_line_window2))
-    
-    right_line_window1 = np.array([np.transpose(np.vstack([right_x - search_margin, right_y]))])
-    right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_x + search_margin, right_y])))])
-    right_line_pts     = np.hstack((right_line_window1, right_line_window2))
-
-    if debug:
-        # print('  display using iteration: ', iteration, ' of xfitted_history')
-        print('  left_fitx     : ', left_x.shape    , '  right_fitx    : ', right_x.shape)
-        print('  left_line_pts :' , left_line_pts.shape, '  right_line_pts: ' , right_line_pts.shape)
-    
-    wcolor = colors.to_rgba_array('springgreen')[0] * 255    
-    
-    # Create an blank array to draw the search region on 
-    # Draw the search region onto the warped blank image
-    window_img = np.zeros_like(input_img)
-    cv2.fillPoly(window_img, np.int_([left_line_pts]), wcolor)
-    cv2.fillPoly(window_img, np.int_([right_line_pts]), wcolor)
-    result = cv2.addWeighted(input_img, 1, window_img, 0.6, 0)
-    
-    return result
-    
+    return  out_img, histogram, (imgPixelRatio, NztoSrchNzRatio, NztoImageNzRatio, ttlImageNZPixels, ttlLaneNZPixels)
