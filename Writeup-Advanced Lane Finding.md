@@ -1,6 +1,14 @@
-## Writeup Template
+## Advanced Lane Finding Project
 
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
+Kevin Bardool
+
+The goals / steps of this writeup: 
+* Review of the camera calibration process
+* Review of the advanced line detection pipeline
+* Reflection on work - challenges encountered and  possible improvements. 
+
+
+---
 
 ---
 

@@ -182,10 +182,14 @@ class VideoFile(object):
         
     def saveFrameToVideo(self, frame, debug = True):
         assert self.mode == 'output', ' video file not opened in output mode'
-        
-        frameBGR = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        self.videoFile.write(frameBGR)
-        if debug:
-            print(' Frame written to video file: ',self.videoFilename) 
+        try:
+            frameBGR = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            self.videoFile.write(frameBGR)
+        except Exception as e:
+            print('\n ERROR in writing frame', self.currFrameNum, 'to video file')
+            print('Exception message:', e)
+        else: 
+            if debug:
+                print(' Frame written to video file: ',self.videoFilename) 
     
    

@@ -620,6 +620,7 @@ def apply_thresholds(img,  thrshlds , **kwargs):
 
     results['cmb_rgb_lvl'] = results['cmb_rgb']  | results['cmb_lvl']  
     results['cmb_rgb_lvl_sat'] = results['cmb_rgb_lvl'] | results['cmb_sat']  
+    results['cmb_rgb_lvl_sat_x'] = results['cmb_rgb_lvl_sat'] | results['cmb_x']  
     results['cmb_rgb_mag_x'] = results['cmb_rgb']   | results['cmb_mag'] | results['cmb_x']
     results['cmb_rgb_lvl_sat_mag'] = results['cmb_rgb_lvl_sat'] |  results['cmb_mag']  
     results['cmb_rgb_lvl_sat_mag_x'] = results['cmb_rgb_lvl_sat_mag'] | results['cmb_x']
@@ -708,6 +709,13 @@ def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
                       title2 = warped_p + res_ratio['cmb_mag'], 
                       title4 = warped_p + res_ratio['cmb_lvl'])
 
+        display_multi(inputs['cmb_rgb'], results['cmb_rgb'], 
+                        inputs['cmb_sat'], results['cmb_sat'], 
+                        title1 = 'cmb_rgb '+itStr['rgb_thr']+'    %'+inp_ratio['cmb_rgb'],  
+                        title3 = 'cmb_sat '+itStr['sat_thr']+'    %'+inp_ratio['cmb_sat'], 
+                        title2 = warped_p + res_ratio['cmb_rgb'], 
+                        title4 = warped_p + res_ratio['cmb_sat'])
+
         if itStr['mag_thr'] :
             display_multi(inputs['cmb_mag_x']       , results['cmb_mag_x'],   
                             inputs['cmb_mag_lvl_x'] , results['cmb_mag_lvl_x'],
@@ -742,14 +750,6 @@ def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
                           title2 = warped_p + res_ratio['cmb_y'], 
                           title4 = warped_p + res_ratio['cmb_xy'])
         
-        if itStr['rgb_thr']  != 'None' or itStr['sat_thr'] != 'None':
-            display_multi(inputs['cmb_rgb'], results['cmb_rgb'], 
-                          inputs['cmb_sat'], results['cmb_sat'], 
-                          title1 = 'cmb_rgb '+itStr['rgb_thr']+'    %'+inp_ratio['cmb_rgb'],  
-                          title3 = 'cmb_sat '+itStr['sat_thr']+'    %'+inp_ratio['cmb_sat'], 
-                          title2 = warped_p + res_ratio['cmb_rgb'], 
-                          title4 = warped_p + res_ratio['cmb_sat'])
-
         if itStr['sat_thr'] != 'None':
             display_multi(inputs['cmb_sat_x']    , results['cmb_sat_x']    ,
                           inputs['cmb_sat_mag_x'], results['cmb_sat_mag_x'],
@@ -774,6 +774,12 @@ def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
                           title2 = warped_p + res_ratio['cmb_rgb_lvl'], 
                           title4 = warped_p + res_ratio['cmb_rgb_lvl_sat'])
 
+            display_multi(inputs['cmb_rgb_lvl']    , results['cmb_rgb_lvl'] ,          
+                          inputs['cmb_rgb_lvl_sat_x'], results['cmb_rgb_lvl_sat_x'] , 
+                          title1 = 'cmb_rgb_lvl'    +'    %'+inp_ratio['cmb_rgb_lvl'], 
+                          title3 = 'cmb_rgb_lvl_sat_x'+'    %'+inp_ratio['cmb_rgb_lvl_sat_x'], 
+                          title2 = warped_p + res_ratio['cmb_rgb_lvl'], 
+                          title4 = warped_p + res_ratio['cmb_rgb_lvl_sat'])
             
             display_multi(inputs['cmb_rgb_lvl_sat_mag']  , results['cmb_rgb_lvl_sat_mag'],   
                           inputs['cmb_rgb_lvl_sat_mag_x'], results['cmb_rgb_lvl_sat_mag_x'], 

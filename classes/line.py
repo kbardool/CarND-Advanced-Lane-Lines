@@ -4,6 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 from collections import deque
 import pprint 
+from numpy.polynomial import Polynomial  
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
 print(' Loading line.py - cwd:', os.getcwd())
@@ -14,10 +15,15 @@ class Line():
     def __init__(self, history, height, y_src_top, y_src_bot, **kwargs):
 
         self.history           = history
+        self.compute_history   = kwargs.get('compute_history',2)
+
         self.name              = kwargs.get('name', '')
         self.POLY_DEGREE       = kwargs.get('poly_degree', 2)
         self.MIN_POLY_DEGREE   = kwargs.get('min_poly_degree', self.POLY_DEGREE)
         self.RSE_THRESHOLD     = kwargs.get('rse_threshold', 120)
+        self.MIN_X_SPREAD      = kwargs.get('min_x_spread', 90)
+        self.MIN_Y_SPREAD      = kwargs.get('min_y_spread', 350)
+        
         # height of current image 
         self.set_height(height)
         print(' poly degree = ', self.POLY_DEGREE)
@@ -46,38 +52,23 @@ class Line():
         self.y_checkpoints = np.concatenate((np.arange(self.y_src_bot,-1,-100), [self.y_src_top]))
         self.y_checkpoints = np.flip(np.sort(self.y_checkpoints))
 
-        # self.curr_RSE            = 0 
-        # self.curr_RSE_history    = deque([], 10)
-        # self.curr_avg_RSE        = 0
-        # self.curr_prev_avg_RSE   = 0
-        # self.curr_fit_diffs        = None ## np.array([0,0,0], dtype='float') 
-        # self.curr_fit_diffs_history = deque([], self.history)
-        # self.best_fit_diffs       = None
-        # self.best_fit_diffs_history = deque([], self.history)
-        # self.LSE                = 0
-        # self.avg_LSE            = 0 
-        # self.LSE_history        = []
-
         #-----------------------------------------------------------------------
         # polynomial coefficients for the most recent fit / fit history
-        # fitted_current: x values of the most recent fitting of the line
+        # proposed_curve: x values of the most recent fitting of the line
         # fitted_history: x values of the last n fits of the line  
         #-----------------------------------------------------------------------
-        self.curr_fit             = None ## np.array([0,0,0], dtype='float')        
-        # self.curr_fit_history     = deque([], self.history)
-        
-        self.proposed_curve       = None
+        self.proposed_fit             = None ## np.array([0,0,0], dtype='float')        
         self.proposed_fit_history = [np.array([0,0,0], dtype='float') ] 
-        
-        self.fitted_current       = None        
-        self.fitted_history       = deque([], self.history)
 
-        self.compute_best_fit     = deque([], self.history)
+        self.proposed_curve         = None        
+        self.proposed_curve_history = deque([], self.history)
+
         #-----------------------------------------------------------------------
         # Best fit polynomial coefficients, diff with current fitted and history
         #-----------------------------------------------------------------------
+        self.compute_best_fit     = deque([], self.compute_history)
         self.best_fit             = None
-        # self.best_fit_history     = deque([], self.history)
+
         self.best_fit_history     = []
         
         self.fitted_best          = None  
@@ -91,8 +82,7 @@ class Line():
         self.avg_RSE             = 0
         self.prev_avg_RSE        = 0
         self.RSE_history         = [] 
- 
- 
+
         self.RMSE                = 0
         self.avg_RMSE            = 0 
         self.RMSE_history        = []
@@ -193,7 +183,7 @@ class Line():
 
     def get_slope(self, fit_parms = None, y_eval = 0, debug = False):
         if fit_parms is None:
-            fit_parms = self.curr_fit
+            fit_parms = self.proposed_fit
         A,B = fit_parms[0:2] 
 
         slope  = ((2*A*(y_eval))+B)
@@ -225,7 +215,7 @@ class Line():
         secondDeriv_eval = np.polyval(secondDerivParms, y_eval_MY)
 
         if np.all(secondDerivParms == np.zeros_like(secondDerivParms)) :
-            print( ' second deriv is zero ')
+            # print( ' second deriv is zero ')
             cur_radius = np.ones_like(y_eval) * 6000
         else:
             cur_radius = ((1 + (firstDeriv_eval)**2)** 1.5)/np.absolute(secondDeriv_eval) 
@@ -257,7 +247,7 @@ class Line():
             print('  len(allx) {}  len(ally): {} '.format(len(self.allx), len(self.ally)))
 
         if len(self.allx) < 200:
-            self.curr_fit = np.copy(self.best_fit_history[-1])
+            self.proposed_fit = np.copy(self.best_fit_history[-1])
             # self.poly_deg = self.best_fit[-1].shape[0] -1
             # print('  *  allx = ally = 0 - using previous best fit --> poly_degree: {} '.format(self.poly_deg))
             self.allx = np.copy(self.best_allx)
@@ -267,41 +257,45 @@ class Line():
         else:
             x_spread = self.allx.max() - self.allx.min()
             y_spread = self.ally.max() - self.ally.min()
-            if x_spread < 90 and y_spread < 350:
+
+            if x_spread < self.MIN_X_SPREAD and y_spread < self.MIN_Y_SPREAD:
                 self.poly_deg = self.MIN_POLY_DEGREE
+                print('  *  {} - x_spread: {}   y_spread: {}    poly_degree: {}  '.format(
+                  self.name, x_spread, y_spread, self.poly_deg ))
             else:
                 self.poly_deg = self.POLY_DEGREE
-            
-            # print('  *  x_spread is {}  y_spread: {}  --> poly_degree: {} '.format(x_spread, y_spread, self.poly_deg))
+                print('  *  {} - x_spread: {}   y_spread: {}    poly_degree: {}  '.format(
+                  self.name, x_spread, y_spread, self.poly_deg ))
             
             try:
-                self.curr_fit = np.polyfit(self.ally , self.allx , self.poly_deg, full=False)
-            except TypeError:
+                self.proposed_fit = np.polyfit(self.ally , self.allx , self.poly_deg, full=False)
+            except Exception as e:
                 # Avoids an error if `left` and `right_fit` are still none or incorrect
                 print('--------------------------------------------------------')
                 print('  fitPolynomial(): The function failed to fit a line!   ')
-                print('  len(allx) {}  len(ally): {} '.format(len(allx), len(ally)))
+                print('  len(allx) {}  len(ally): {} '.format(len(self.allx), len(self.ally)))
                 print('  previous best_fit will be used as proposed polynomial ')
                 print('--------------------------------------------------------')
+                print(' Exception message: ', e)
+                self.proposed_fit = np.copy(self.best_fit)
             finally:
                 if self.poly_deg ==1:
-                    self.curr_fit = np.concatenate(([0.0], self.curr_fit))
-                    self.poly_deg += 1
-                    print(' **  x_spread is {}  y_spread: {}  --> poly_degree reset to : {} '.format(x_spread, y_spread, self.poly_deg))
+                    self.proposed_fit = np.concatenate(([0.0], self.proposed_fit))
+                    self.poly_deg = 2
+                    if debug:
+                        print(' **  x_spread: {}   y_spread: {}    poly_degree reset to : {} '.format(x_spread, y_spread, self.poly_deg))
 
         allx_min, allx_max = self.allx.min(), self.allx.max()
         ally_min, ally_max = self.ally.min(), self.ally.max()
        
-        plot_x = np.round(np.polyval(self.curr_fit, self.plot_y),0).astype(np.int)
+        plot_x = np.round(np.polyval(self.proposed_fit, self.plot_y),0).astype(np.int)
         
         self.yrange_found  = np.linspace(ally_min,  ally_max,  ally_max - ally_min+1, dtype = np.int)
-        self.proposed_curve = np.vstack((plot_x, self.plot_y))
         
-        # self.fitted_current= np.vstack((plot_x, self.ploty))
-        self.proposed_fit_history.append(self.curr_fit)
-        self.current_slope   = self.get_slope(self.curr_fit, self.y_checkpoints)
-        self.current_radius  = self.get_radius(self.curr_fit, self.y_checkpoints)
-        self.current_linepos = np.polyval(self.curr_fit, self.y_checkpoints)  
+        self.proposed_fit_history.append(self.proposed_fit)
+        self.current_slope   = self.get_slope(self.proposed_fit, self.y_checkpoints)
+        self.current_radius  = self.get_radius(self.proposed_fit, self.y_checkpoints)
+        self.current_linepos = np.polyval(self.proposed_fit, self.y_checkpoints)  
         
         self.pixel_spread_x = allx_max - allx_min + 1
         self.pixel_spread_y = ally_max - ally_min + 1
@@ -312,7 +306,7 @@ class Line():
             print('  Y points(ally)   min : {:6d}   max:  {:6d}  spread: {:6d}'.format(ally_min, ally_max, self.pixel_spread_y ))
             print('  Fitted curve X   min : {:6d}   max:  {:6d}  spread: {:6d}'.format(plot_x.min(), plot_x.max(), self.curve_spread_x))
             print('  Current best_fit     : ', self.best_fit)
-            print('  Proposed polynomial  : ', self.curr_fit)
+            print('  Proposed polynomial  : ', self.proposed_fit)
             print('  Current radius       : ', self.current_radius)
 
         self.assessFittedPolynomial(debug=debug)        
@@ -324,18 +318,18 @@ class Line():
             # print(' ','-'*45)    
 
         if self.best_fit is None:  
-            self.best_fit = np.copy(self.curr_fit)
+            self.best_fit = np.copy(self.proposed_fit)
             if debug:
-                print('  Best fit set to self.curr_fit ... best_fit :', self.best_fit,  ' curr_fit: ', self.curr_fit )
+                print('  Best fit set to self.curr_fit ... best_fit :', self.best_fit,  ' proposed_fit: ', self.proposed_fit )
 
-        curr_poly_x = np.polyval(self.curr_fit, self.yrange_found)
+        curr_poly_x = np.polyval(self.proposed_fit, self.yrange_found)
         best_poly_x = np.polyval(self.best_fit, self.yrange_found)
         
-        if self.best_fit.shape[0] == self.curr_fit.shape[0]:  
-            poly_diffs  = (self.best_fit - self.curr_fit)
+        if self.best_fit.shape[0] == self.proposed_fit.shape[0]:  
+            poly_diffs  = (self.best_fit - self.proposed_fit)
         else:
-            fit_len = min(self.curr_fit.shape[0], self.best_fit.shape[0])
-            poly_diffs  = (self.best_fit[-fit_len:] - self.curr_fit[-fit_len:])
+            fit_len = min(self.proposed_fit.shape[0], self.best_fit.shape[0])
+            poly_diffs  = (self.best_fit[-fit_len:] - self.proposed_fit[-fit_len:])
         
         # print(' curr_poly_x ', curr_poly_x)
         # print(' best_poly_x ', best_poly_x)
@@ -391,8 +385,8 @@ class Line():
             print('Accept Fitted Polynomial for '+self.name+' Lane')
             print('-'*45)    
             print(' Accpeted frames since last rejected : ', self.ttlAcceptedFramesSinceRejected)
-            # if len(self.curr_fit_history) > 0 :   
-                # print(' Previous fit      : ', self.curr_fit_history[-1])
+            # if len(self.proposed_fit_history) > 0 :   
+                # print(' Previous fit      : ', self.proposed_fit_history[-1])
             print(' Proposed fit[-2]      : ', self.proposed_fit_history[-2])
             print(' Current  Proposed fit : ', self.proposed_fit_history[-1])
             print(' Current  best_fit     : ', self.best_fit)
@@ -402,11 +396,8 @@ class Line():
         self.ttlRejectedFramesSinceDetected = 0 
         self.ttlAcceptedFramesSinceRejected += 1
 
-        self.compute_best_fit.append(self.curr_fit)
-
         self.set_best_fit(debug = debug2)
-        
-        self.set_fitted_current()
+        self.set_proposed_curve()
         self.set_fitted_best()
         
         self.set_lane_stats()
@@ -425,8 +416,8 @@ class Line():
             print('Reject Fitted Polynomial for '+self.name+' Lane')
             print('-'*45)    
             print(' Rejected frames since last accepted : ', self.ttlRejectedFramesSinceDetected)
-            # if len(self.curr_fit_history) > 0 :   
-                # print(' Previous fit      : ', self.curr_fit_history[-1])
+            # if len(self.proposed_fit_history) > 0 :   
+                # print(' Previous fit      : ', self.proposed_fit_history[-1])
             print(' Proposed fit[-2]      : ', self.proposed_fit_history[-2])
             print(' Current  Proposed fit : ', self.proposed_fit_history[-1])
             print(' Current  best_fit     : ', self.best_fit)
@@ -436,11 +427,11 @@ class Line():
         self.ttlRejectedFramesSinceDetected += 1 
         self.ttlAcceptedFramesSinceRejected =  0
         
-        self.curr_fit = np.copy(self.best_fit)
+        self.proposed_fit = np.copy(self.best_fit)
         # self.poly_deg = self.best_fit.shape[0] - 1
         self.set_best_fit(debug = debug2)
 
-        self.set_fitted_current()
+        self.set_proposed_curve()
         self.set_fitted_best()
 
         self.set_lane_stats()
@@ -465,8 +456,9 @@ class Line():
     def set_best_fit(self, debug = False):
         ## Calculate new best_fit, using recently added polynomial.
 
-        # self.best_fit  = sum(self.compute_best_fit)/ len(self.compute_best_fit) 
-        self.best_fit  = (self.best_fit + self.curr_fit)/2
+        self.compute_best_fit.append(self.proposed_fit)
+        self.best_fit  = sum(self.compute_best_fit)/ len(self.compute_best_fit) 
+        
         self.best_fit_history.append(self.best_fit)
         self.best_allx = np.copy(self.allx)
         self.best_ally = np.copy(self.ally)
@@ -479,13 +471,13 @@ class Line():
             print('   best RSE(current,best) : ', self.RSE, '   best avg_RSE: ', self.prev_avg_RSE, ' new best avg RSE:', self.avg_RSE) 
                 
 
-    def set_fitted_current(self, debug = False):
-        x = np.polyval(self.curr_fit, self.plot_y)
-        self.fitted_current   = np.vstack((x, self.plot_y))
-        self.fitted_history.append(self.fitted_current)        
+    def set_proposed_curve(self, debug = False):
+        x = np.polyval(self.proposed_fit, self.plot_y)
+        self.proposed_curve   = np.vstack((x, self.plot_y))
+        self.proposed_curve_history.append(self.proposed_curve)        
         
         if debug: 
-            print(' set_fitted_current() - length: ', len(self.fitted_history), ' shape: ', self.fitted_current.shape)
+            print(' set_proposed_curve() - length: ', len(self.proposed_curve_history), ' shape: ', self.proposed_curve.shape)
 
 
     def set_fitted_best(self, debug = False):
@@ -500,5 +492,4 @@ class Line():
     def reset_best_fit(self, debug = False):
         if debug:
             print('    Clear best fit and history for ', self.name)
-        self.best_fit = np.copy(self.curr_fit)
-        # compute_best_fit.clear()
+        self.best_fit = np.copy(self.proposed_fit)

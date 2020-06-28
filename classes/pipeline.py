@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pprint 
 import copy 
 import winsound 
-from collections import deque
+from collections import deque, defaultdict
 from classes.line import Line
 from classes.plotting import PlotDisplay
 from common.utils import (find_lane_pixels  , search_around_poly, 
@@ -41,7 +41,13 @@ class ALFPipeline(object):
   
         self.mode                       = kwargs.get('mode'                 ,    1)
         self.POLY_DEGREE                = kwargs.get('poly_degree'          ,    2)
+        self.MIN_POLY_DEGREE            = kwargs.get('min_poly_degree'      ,    2)
+        self.MIN_X_SPREAD               = kwargs.get('min_x_spread', 90)
+        self.MIN_Y_SPREAD               = kwargs.get('min_y_spread', 350)
+
+
         self.HISTORY                    = kwargs.get('history'              ,    8)
+        self.COMPUTE_HISTORY            = kwargs.get('compute_history'      ,    2)
         
         self.NWINDOWS                   = kwargs.get('nwindows'             ,   30)
         self.HISTOGRAM_WIDTH_RANGE      = kwargs.get('hist_width_range'     ,  600)
@@ -68,17 +74,7 @@ class ALFPipeline(object):
         self.OFF_CENTER_ROI_THRESHOLD   = kwargs.get('off_center_roi_threshold',  60)
         self.CURRENT_OFFCTR_ROI_THR     = np.copy(self.OFF_CENTER_ROI_THRESHOLD)
 
-        # self.debug3 = self.debug or self.debug2 or self.debug3
         self.HISTOGRAM_SEARCH_RANGE   = (self.camera_x - self.HISTOGRAM_WIDTH_RANGE, self.camera_x + self.HISTOGRAM_WIDTH_RANGE)
-
-        # XHIGH_SAT_THRESHOLD =  120 
-        # HIGH_SAT_THRESHOLD  =   65
-        # LOW_SAT_THRESHOLD   =   30
-        
-        # HIGH_RGB_THRESHOLD  =  205
-        # MED_RGB_THRESHOLD   =  170
-        # LOW_RGB_THRESHOLD   =  120
-        # VLOW_RGB_THRESHOLD  =   90              
 
         ## Thresholding Parameters 
         self.HIGH_RGB_THRESHOLD       = kwargs.get('high_rgb_threshold'   ,  180)   # 220
@@ -162,10 +158,16 @@ class ALFPipeline(object):
         }
         np.set_printoptions(linewidth=195, precision=4, floatmode='fixed', threshold =500, formatter = self.np_format)
     
-        self.LeftLane = Line(name =  'Left', history = self.HISTORY, poly_degree = self.POLY_DEGREE, height = self.height, 
-                             y_src_top = self.y_src_top, y_src_bot = self.y_src_bot, rse_threshold = self.RSE_THRESHOLD)
-        self.RightLane= Line(name = 'Right', history = self.HISTORY, poly_degree = self.POLY_DEGREE, height = self.height, 
-                             y_src_top = self.y_src_top, y_src_bot = self.y_src_bot, rse_threshold = self.RSE_THRESHOLD)
+        self.LeftLane = Line(name =  'Left', history = self.HISTORY, compute_history = self.COMPUTE_HISTORY,
+                             poly_degree = self.POLY_DEGREE, min_poly_degree = self.MIN_POLY_DEGREE,
+                             min_x_spread = self.MIN_X_SPREAD, min_y_spread = self.MIN_Y_SPREAD,   
+                             height = self.height,  y_src_top = self.y_src_top, y_src_bot = self.y_src_bot, 
+                             rse_threshold = self.RSE_THRESHOLD)
+        self.RightLane= Line(name = 'Right', history = self.HISTORY,  compute_history = self.COMPUTE_HISTORY,
+                             poly_degree = self.POLY_DEGREE, min_poly_degree = self.MIN_POLY_DEGREE,
+                             min_x_spread = self.MIN_X_SPREAD, min_y_spread = self.MIN_Y_SPREAD,                             
+                             height = self.height, y_src_top = self.y_src_top, y_src_bot = self.y_src_bot, 
+                             rse_threshold = self.RSE_THRESHOLD)
         print(' Pipeline initialization complete...')                                      
 
 
@@ -241,9 +243,6 @@ class ALFPipeline(object):
                                                                     title2 = 'ImgLanePxls (Cyan: Prev fit, Yellow: New proposal, Fuschia: New Best Fit)' )
                 display_one(output, size= size, title = self.inVideo.frameTitle)        
                 
-        #     if ( 630 < Pipeline.inVideo.currFrameNum <710):
-        #         display_one(output, size= SIZE, title = Pipeline.inVideo.frameTitle)        
-                
         print('Finshed - Curr frame number :', self.inVideo.currFrameNum)
 
 
@@ -268,11 +267,13 @@ class ALFPipeline(object):
         ### PIPELINE 
         ###----------------------------------------------------------------------------------------------
         self.imgUndist = self.camera.undistortImage(self.image)
+
         self.saveImageStats(self.imgUndist, self.imgUndistStats)
 
         self.src_points_history.append(self.src_points)
 
         self.imgWarped, self.M , self.Minv = perspectiveTransform(self.imgUndist, self.src_points, self.dst_points, debug = self.debug4)
+        
         self.saveImageStats(self.imgWarped, self.imgWarpedStats)
         
         self.imgRoI             = displayRoILines(self.imgUndist, self.src_points_list, thickness = 2)
@@ -352,7 +353,8 @@ class ALFPipeline(object):
                                                                            histDepthRange  = self.HISTOGRAM_DEPTH_RANGE, 
                                                                            search_margin   = window_search_margin, 
                                                                            reset_search_base = reset_search_base,
-                                                                           debug = self.debug) 
+                                                                           debug = self.debug,
+                                                                           debug2 = self.debug2) 
 
         else:    
             self.out_img, self.histogram, self.detStats = search_around_poly(self.working_image, 
@@ -908,7 +910,7 @@ class ALFPipeline(object):
             self.prevBestFit = displayPolynomial(self.prevBestFit, self.LeftLane.proposed_curve, self.RightLane.proposed_curve, 
                                                  iteration = -1,  color = 'yellow')
 
-        # currentFit  = displayPolynomial(prevBestFit, self.LeftLane.fitted_current, self.RightLane.fitted_current, iteration = -1, color = 'yellow')
+        # currentFit  = displayPolynomial(prevBestFit, self.LeftLane.proposed_curve, self.RightLane.proposed_curve, iteration = -1, color = 'yellow')
 
         self.imgLanePxls = displayPolynomial(self.prevBestFit, self.LeftLane.fitted_best, self.RightLane.fitted_best, color = 'fuchsia', thickness = 2)
         if display:
@@ -1051,14 +1053,14 @@ class ALFPipeline(object):
             polyRegionColor1 = kwargs.get('color1', 'green')
 
             if debug:
-                print(' Left lane MR fit           : ', self.LeftLane.curr_fit , '    Right lane MR fit     : ', self.RightLane.curr_fit)
+                print(' Left lane MR fit           : ', self.LeftLane.proposed_fit , '    Right lane MR fit     : ', self.RightLane.proposed_fit)
                 print(' Left lane MR best fit      : ', self.LeftLane.best_fit , '    Right lane MR best fit: ', self.RightLane.best_fit)
                 print(' Left radius @ y =  10   : '+str(self.LeftLane.get_radius(10)) +" m   Right radius: "+str(self.RightLane.get_radius(10))+" m")
                 print(' Left radius @ y = 700   : '+str(self.LeftLane.get_radius(700))+" m   Right radius: "+str(self.RightLane.get_radius(700))+" m")
                 print(' Curvature message : ', curv_msg)
                 print(' Off Center Message: ', oc_msg)            
 
-            result_1, _  = displayDetectedRegion(self.imgUndist, self.LeftLane.fitted_current, self.RightLane.fitted_current, 
+            result_1, _  = displayDetectedRegion(self.imgUndist, self.LeftLane.proposed_curve, self.RightLane.proposed_curve, 
                                             self.Minv, disp_start= self.displayRegionTop , beta = 0.2, 
                                             color = self.polyRegionColor1, debug = False)
 
@@ -1131,10 +1133,10 @@ class ALFPipeline(object):
         print('='*70)
 
         print()
-        print('Proposed Polynomial      left :  {}    right : {} '.format(self.LeftLane.curr_fit, self.RightLane.curr_fit))
+        print('Proposed Polynomial      left :  {}    right : {} '.format(self.LeftLane.proposed_fit, self.RightLane.proposed_fit))
         print('Best Fit Polynomial      left :  {}    right : {} '.format(self.LeftLane.best_fit, self.RightLane.best_fit))
-        print('Diff(proposed,best_fit)  left :  {}    right : {} '.format( self.LeftLane.best_fit-self.LeftLane.curr_fit, 
-                                                                                self.RightLane.best_fit-self.RightLane.curr_fit))
+        print('Diff(proposed,best_fit)  left :  {}    right : {} '.format( self.LeftLane.best_fit-self.LeftLane.proposed_fit, 
+                                                                                self.RightLane.best_fit-self.RightLane.proposed_fit))
         print('RSE(Proposed,best fit):  left :  {:<30.3f}    right : {:<30.3f} '.format(self.LeftLane.RSE ,self.RightLane.RSE ))
         print()
 
@@ -1142,7 +1144,7 @@ class ALFPipeline(object):
         # print()
         # print('Proposed Polynomial:')
         # print('-'*40)
-        # print('left      : {}    right     : {} '.format(self.LeftLane.curr_fit, self.RightLane.curr_fit))
+        # print('left      : {}    right     : {} '.format(self.LeftLane.proposed_fit, self.RightLane.proposed_fit))
 
         # if len(self.LeftLane.proposed_fit_history) > 1:
         print()
@@ -1156,8 +1158,8 @@ class ALFPipeline(object):
         #     print()
         #     print('Diff b/w proposed and best_fit polynomial ')
         #     print('-'*40)
-        #     print('left      : {}    right     : {} '.format( self.LeftLane.best_fit-self.LeftLane.curr_fit, 
-        #                                                     self.RightLane.best_fit-self.RightLane.curr_fit)    )
+        #     print('left      : {}    right     : {} '.format( self.LeftLane.best_fit-self.LeftLane.proposed_fit, 
+        #                                                     self.RightLane.best_fit-self.RightLane.proposed_fit)    )
         #     print()
         #     print('Proposed RSE with best fit - self.LeftLane: {}   RLane :  {} '.format(self.LeftLane.RSE ,self.RightLane.RSE ))
         #     print()
@@ -1471,15 +1473,24 @@ class ALFPipeline(object):
         # plt.hlines( 150      , 0, len_x, color='k', alpha=0.5, linestyles='dashed', linewidth=1, label = '(150)')    
         plt.hlines( self.HIGH_RGB_THRESHOLD    , 0, len_x, color='darkred', alpha=0.5, linestyles='dashed', linewidth=1, 
                     label = 'High RGB '+str(self.HIGH_RGB_THRESHOLD))    
+        plt.text(0, self.HIGH_RGB_THRESHOLD - 30, 'HighRGB', family = 'monospaced')
+
         plt.hlines( self.MED_RGB_THRESHOLD    , 0, len_x, color='darkorange', alpha=0.7, linestyles='dashed', linewidth=1, 
                     label = 'Med RGB '+str(self.MED_RGB_THRESHOLD))    
-        plt.hlines( self.LOW_RGB_THRESHOLD    , 0, len_x, color='darkgreen' , alpha=0.5, linestyles='dashed', linewidth=1,
-                    label = 'Low RGB '+str(self.LOW_RGB_THRESHOLD))    
-        plt.hlines( self.IMAGE_RATIO_HIGH_THRESHOLD, 0, len_x, color='red'  , alpha=0.5, linestyles='dashed', linewidth=1)    
-        
+        plt.text(0, self.MED_RGB_THRESHOLD - 30, 'MedRGB', family = 'monospaced')
         plt.axhspan(self.MED_RGB_THRESHOLD, self.LOW_RGB_THRESHOLD,facecolor='g', alpha = 0.5)
+      
+        plt.hlines( self.LOW_RGB_THRESHOLD    , 0, len_x, color='darkgreen' , alpha=0.5, linestyles='dashed', linewidth=1,
+                    label = 'Low RGB '+str(self.LOW_RGB_THRESHOLD)) 
+        plt.text(0, self.LOW_RGB_THRESHOLD - 30, 'LowRGB', family = 'monospaced')
         plt.axhspan(self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD,facecolor='y', alpha = 0.5)
+      
+        plt.hlines( self.VLOW_RGB_THRESHOLD, 0, len_x, color='darkred'      , alpha=0.5, linestyles='dashed', linewidth=1,  
+                    label = 'VLow RGB '+str(self.VLOW_RGB_THRESHOLD))    
+        plt.text(0, self.VLOW_RGB_THRESHOLD - 30, 'VLowRGB', family = 'monospaced')
         plt.axhspan(self.VLOW_RGB_THRESHOLD, 0 , facecolor='mistyrose', alpha = 0.5)
+        
+        plt.hlines( self.IMAGE_RATIO_HIGH_THRESHOLD, 0, len_x, color='black'  , alpha=0.5, linestyles='dashed', linewidth=1)    
         
         ax.minorticks_on()        
         for (x,_,_) in self.imgAdjustHistory:
@@ -1655,10 +1666,12 @@ class ALFPipeline(object):
         print()
         for mod in mode:
             print('','-'*150)
-            print(' {:8s} : {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format('',
+            print(' {:8s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format('',
             'PL[X-High]','PL[High]','PL[Med]','PL[Low]','PL[VLow]','PL[HiSat]','PL[LoSat]'))
-            print(' {:8s} : {:>10s} {:<9d} |  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |'\
-            ' {:>8s} > {:<9d} | {:>8s} > {:<9d} |'.format('','RGB > ', self.HIGH_RGB_THRESHOLD, 
+
+            print(' {:8s} | RGB> {:<3d} or SAT > {:<3d}|  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |'\
+            ' {:>8s} > {:<9d} | {:>8s} > {:<9d} |'.format('', self.HIGH_RGB_THRESHOLD, self.HIGH_SAT_THRESHOLD, 
+            
             self.HIGH_RGB_THRESHOLD, self.MED_RGB_THRESHOLD,   self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD ,
             self.LOW_RGB_THRESHOLD , self.VLOW_RGB_THRESHOLD, 'SAT', self.HIGH_SAT_THRESHOLD, 'SAT', self.LOW_SAT_THRESHOLD))
             print('','-'*150)
@@ -1753,9 +1766,9 @@ class ALFPipeline(object):
         ##---------------------------------------------
         ## Image Thresholding params 
         ##---------------------------------------------
-        self.ImageThresholds  = { 1: {} , 2: {} }
-        self.itStr            = { 1: {} , 2: {} }
-        self.thresholdMethods = { 1: {} , 2: {} }
+        self.ImageThresholds  = defaultdict(dict) ## { 1: {} , 2: {} }
+        self.itStr            = defaultdict(dict) ## { 1: {} , 2: {} }
+        self.thresholdMethods = defaultdict(dict) ## { 1: {} , 2: {} }
 
         self.thresholdMethods[1]['xhigh']  =  self.XHIGH_THRESHOLDING   
         self.thresholdMethods[1]['high']   =  self.HIGH_THRESHOLDING   
@@ -1851,12 +1864,6 @@ class ALFPipeline(object):
         ##------------------------------------
         ## Warped Image Threshold params
         ##------------------------------------
-#       self.thresholdMethods[2]['high']   =  self.HIGH_THRESHOLDING   ## ('high_thresholding'    , 'cmb_mag_x')
-#       self.thresholdMethods[2]['med']    =  self.NORMAL_THRESHOLDING ## ('normal_thresholding'  , 'cmb_rgb_lvl_sat')
-#       self.thresholdMethods[2]['low']    =  self.LOW_THRESHOLDING    ## ('low_thresholding'     , 'cmb_mag_xy')
-#       self.thresholdMethods[2]['vlow']   =  self.VLOW_THRESHOLDING   ## ('Vlow_thresholding'    , 'cmb_mag_xy')
-#       self.thresholdMethods[2]['hisat']  =  self.HISAT_THRESHOLDING  ## ('hisat_thresholding'   , 'cmb_mag_x')
-#       self.thresholdMethods[2]['lowsat'] =  self.LOWSAT_THRESHOLDING ## ('lowsat_thresholding'  , 'cmb_hue_x')
 
         self.thresholdMethods[2]['xhigh']  =  self.XHIGH_THRESHOLDING   
         self.thresholdMethods[2]['high']   =  self.HIGH_THRESHOLDING   
@@ -1953,14 +1960,16 @@ class ALFPipeline(object):
         self.thresholds_to_str()
 
 
-    def thresholds_to_str(self):
+    def thresholds_to_str(self, debug = False):
         for mode in [1,2]:
             for cond in self.ImageThresholds[mode].keys():
-                print(mode ,    ' cond: ',cond)
+                if debug:
+                    print(mode ,    ' Threshold key: ',cond)
                 self.itStr[mode][cond] = {}
                 for thr in self.ImageThresholds[mode][cond].keys():
-                    print('      thr : ', thr, '   ', self.ImageThresholds[mode][cond][thr])
                     self.itStr[mode][cond][thr] = str(self.ImageThresholds[mode][cond][thr])
+                    if debug:
+                        print('      thr : ', thr, '   ', self.ImageThresholds[mode][cond][thr])
 
 
 

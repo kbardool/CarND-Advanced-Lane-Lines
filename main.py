@@ -21,6 +21,8 @@ from classes.pipeline import ALFPipeline
 from classes.videofile import VideoFile
 from classes.camera import Camera
 from common.utils import display_one, display_two
+from collections import defaultdict
+
 pp = pprint.PrettyPrinter(indent=2, width=100)
 print('Current working dir: ', os.getcwd())
 try:
@@ -35,16 +37,21 @@ if '.' not in sys.path:
 INPUT_PATH            = REL_PATH 
 OUTPUT_PATH           = REL_PATH 
 
-
+print(' main.py module - name is ', __name__)
 
 
 ''' 
 #--------------------------------------------------------------------------
 #-- MAIN 
 #--------------------------------------------------------------------------'''
-def main( input_file = 'VIDEO_INPUT', from_frame = 0, to_frame = 999999, output_path = 'output_path', suffix = '', **kwargs): 
+def main( input_file , from_frame = 0, to_frame = 999999, 
+          output_path = 'output_path', 
+          overrides   = None, 
+          suffix = datetime.now().strftime("%m-%d-%Y-%H%M_DEV"), 
+          **kwargs): 
 
     print('--> main routine started at:',datetime.now().strftime("%m-%d-%Y @ %H:%M:%S"))
+    print(' Suffix: ', suffix)
     print(' kwargs: ', kwargs)
     file_sfx = datetime.now().strftime("%m%d%Y@%H%M")
 
@@ -65,60 +72,25 @@ def main( input_file = 'VIDEO_INPUT', from_frame = 0, to_frame = 999999, output_
     print(cameraConfig.cameraMatrix)
 
 
-    ##----------------------------------------------------------
-    ## harder challlenge video 
-    ##----------------------------------------------------------
-    
     Pipeline = ALFPipeline(cameraConfig, **kwargs)
-    #                        mode                     =   1, 
-    #                        history                  =   5,
-    #                        RoI_x_adj                =  30,
-    #                        y_src_top                = 520,
-    #                        y_src_bot                = 680,
-    #                        displayRegionTop         = 520,
-    #                        displayRegionBot         = 680,
-   
-    #                        high_thresholding        = 'cmb_hue_mag_lvl_x',
-    #                        normal_thresholding      = 'cmb_hue_mag_lvl_x',
-    #                        low_thresholding         = 'cmb_hue_lvl_x',
-    #                        vlow_thresholding        = 'cmb_mag_x',
-    #                        hisat_thresholding       = 'cmb_mag_x', 
-    #                        lowsat_thresholding      = 'cmb_hue_x',
-                            
-    #                        poly_search_margin       =   48,
-    #                        window_search_margin     =   45,
-    #                        lane_ratio_threshold     =  2.0,
-    #                        lane_ratio_low_threshold =  8.0,
-    #                        lane_ratio_high_threshold= 75.0,
-    #                        image_ratio_threshold    =   30,
-    #                        rse_threshold            =   80,  ## Changed from 120 to 80 3-10-20 
-    #                        lane_count_threshold     = 1300,  ## changed from 3000
-    #                        off_center_roi_threshold =   50
-    # #                      init_window_search_margin =   65,  
-    # )
+
     Pipeline.inVideo  = VideoFile( input_file, mode = 'input' , fromFrame = from_frame, toFrame = to_frame)
     Pipeline.outVideo = VideoFile( input_file, mode = 'output', outputPath = output_path ,suffix = suffix, like = Pipeline.inVideo)
 
-    
-    print(' --> ALF Video ended at:',datetime.now().strftime("%m-%d-%Y @ %H:%M:%S"))
+    if overrides == 'challenge':
+        challenge_overrides(Pipeline)
+    elif overrides == 'harder':
+        harder_challenge_overrides(Pipeline)
+
+    print('--- ALF Video ended at:',datetime.now().strftime("%m-%d-%Y @ %H:%M:%S"))
     return Pipeline
 
 
 def project_overrides(Pipeline):
     
     print('--- project_overrides --------------------------------------')
-    ##----------------------------------------------------------
-    ## project video - Mode 1
-    ##----------------------------------------------------------
 
-
-    
-    Pipeline.itStr = {1: {} , 2: {} }
-    for mode in [1,2]:
-        for cond in Pipeline.ImageThresholds[mode].keys():
-            Pipeline.itStr[mode][cond] = {}
-            for thr in Pipeline.ImageThresholds[mode][cond].keys():
-                Pipeline.itStr[mode][cond][thr] = str(Pipeline.ImageThresholds[mode][cond][thr]) if Pipeline.ImageThresholds[mode][cond][thr] else 'None'
+    Pipeline.thresholds_to_str()
 
     print('--- all done' )
     return
@@ -138,22 +110,14 @@ def challenge_overrides(Pipeline):
     Pipeline.OFF_CENTER_ROI_THRESHOLD   =    50   ## default is  6-
 
        
-    Pipeline.HIGH_RGB_THRESHOLD         =   205   ## default is  180
-    Pipeline.MED_RGB_THRESHOLD          =   170   ## default is  180
-    Pipeline.LOW_RGB_THRESHOLD          =   120   ## default is  100
-    Pipeline.VLOW_RGB_THRESHOLD         =    90   ## default is   35         
+    # Pipeline.HIGH_RGB_THRESHOLD         =   205   ## default is  180
+    # Pipeline.MED_RGB_THRESHOLD          =   170   ## default is  180
+    # Pipeline.LOW_RGB_THRESHOLD          =   120   ## default is  100
+    # Pipeline.VLOW_RGB_THRESHOLD         =    90   ## default is   35         
                                               
-    Pipeline.XHIGH_SAT_THRESHOLD        =   120   ## default is  120
-    Pipeline.HIGH_SAT_THRESHOLD         =    65   ## default is   65
-    Pipeline.LOW_SAT_THRESHOLD          =    30   ## default is   20
-
-    # Pipeline.thresholdMethods[1]['xhigh']  =  'cmb_mag_x'             ## HISAT_THRESHOLDING     205 < avg
-    # Pipeline.thresholdMethods[1]['high']   =  'cmb_hue_mag_lvl_x'     ## HIGH_THRESHOLDING      170 < avg < 205
-    # Pipeline.thresholdMethods[1]['med']    =  'cmb_hue_mag_lvl_x'     ## NORMAL_THRESHOLDING  - 100 < avg < 170
-    # Pipeline.thresholdMethods[1]['low']    =  'cmb_hue_mag_x'         ## LOW_THRESHOLDING     -  35 < avg < 130
-    # Pipeline.thresholdMethods[1]['vlow']   =  'cmb_hue_mag_x'         ## VLOW_THRESHOLDING    -       avg <  35
-    # Pipeline.thresholdMethods[1]['hisat']  =  'cmb_mag_x'             ## HISAT_THRESHOLDING
-    # Pipeline.thresholdMethods[1]['lowsat'] =  'cmb_hue_mag_sat'       ## LOWSAT_THRESHOLDING
+    # Pipeline.XHIGH_SAT_THRESHOLD        =   120   ## default is  120
+    # Pipeline.HIGH_SAT_THRESHOLD         =    65   ## default is   65
+    # Pipeline.LOW_SAT_THRESHOLD          =    30   ## default is   20
 
     Pipeline.thresholdMethods[1]['xhigh']  =  'cmb_rgb_lvl_sat'       ## HISAT_THRESHOLDING     205 < avg
     Pipeline.thresholdMethods[1]['high']   =  'cmb_rgb_lvl_sat'       ## HIGH_THRESHOLDING      170 < avg < 205
@@ -225,6 +189,17 @@ def challenge_overrides(Pipeline):
 
     # Pipeline.ImageThresholds[1]['med']  = {
     #     'ksize'      : 7         ,
+    #     'x_thr'      : ( 30, 255),
+    #     'y_thr'      : ( 70, 255),
+    #     'mag_thr'    : ( 35, 255),
+    #     'dir_thr'    : ( 40,  65),
+    #     'sat_thr'    : (110, 255),
+    #     'lvl_thr'    : (180, 255),
+    #     'rgb_thr'    : (180, 255),
+    #     'hue_thr'    : ( 20,  65)
+    # }        
+    # Pipeline.ImageThresholds[1]['med']  = {
+    #     'ksize'      : 7         ,
     #     'x_thr'      : ( 60,255)  ,
     #     'y_thr'      : None  ,
     #     'mag_thr'    : ( 60,255)  ,
@@ -235,18 +210,18 @@ def challenge_overrides(Pipeline):
     #     'hue_thr'    : ( 20, 65)
     # }        
     
+    ## modified June 25 2020
     Pipeline.ImageThresholds[1]['med']  = {
         'ksize'      : 7         ,
-        'x_thr'      : ( 30, 255),
-        'y_thr'      : ( 70, 255),
-        'mag_thr'    : ( 35, 255),
-        'dir_thr'    : ( 40,  65),
-        'sat_thr'    : (110, 255),
-        'lvl_thr'    : (180, 255),
-        'rgb_thr'    : (180, 255),
-        'hue_thr'    : ( 20,  65)
+        'x_thr'      : ( 15, 30),
+        'y_thr'      : None,
+        'mag_thr'    : ( 10,  50),
+        'dir_thr'    : ( 45,  65),
+        'sat_thr'    : ( 90, 175),
+        'lvl_thr'    : (200, 255),
+        'rgb_thr'    : (200, 255),
+        'hue_thr'    : (  5,  35)
     }        
-
 
 
     Pipeline.ImageThresholds[1]['low']  = {
@@ -296,13 +271,7 @@ def challenge_overrides(Pipeline):
         'hue_thr'    : (25,35)
     }
 
-
-    Pipeline.itStr = {1: {} , 2: {} }
-    for mode in [1,2]:
-        for cond in Pipeline.ImageThresholds[mode].keys():
-            Pipeline.itStr[mode][cond] = {}
-            for thr in Pipeline.ImageThresholds[mode][cond].keys():
-                Pipeline.itStr[mode][cond][thr] = str(Pipeline.ImageThresholds[mode][cond][thr]) if Pipeline.ImageThresholds[mode][cond][thr] else 'None'
+    Pipeline.thresholds_to_str()
 
     print('--- all done' )
 
@@ -323,7 +292,7 @@ def harder_challenge_overrides(Pipeline):
     Pipeline.OFF_CENTER_ROI_THRESHOLD   =   50    ## default is  6-
     
     # Pipeline.WINDOW_SRCH_MRGN         =    45   ## default is  40
-    Pipeline.POLY_SRCH_MRGN             =   48    ## default is  45
+    # Pipeline.POLY_SRCH_MRGN             =   48    ## default is  45
 
        
     Pipeline.HIGH_RGB_THRESHOLD         =  205    ## default is  180
@@ -335,14 +304,13 @@ def harder_challenge_overrides(Pipeline):
     Pipeline.HIGH_SAT_THRESHOLD         =   65    ## default is   65
     Pipeline.LOW_SAT_THRESHOLD          =   30    ## default is   20
 
-    Pipeline.thresholdMethods[1]['xhigh']  =  'cmb_mag_x'             ## HISAT_THRESHOLDING     205 < avg
-    Pipeline.thresholdMethods[1]['high']   =  'cmb_hue_mag_lvl_x'     ## HIGH_THRESHOLDING      170 < avg < 205
-    Pipeline.thresholdMethods[1]['med']    =  'cmb_hue_mag_lvl_x'     ## NORMAL_THRESHOLDING  - 100 < avg < 170
-    Pipeline.thresholdMethods[1]['low']    =  'cmb_hue_mag_x'         ## LOW_THRESHOLDING     -  35 < avg < 130
-    Pipeline.thresholdMethods[1]['vlow']   =  'cmb_hue_mag_x'         ## VLOW_THRESHOLDING    -       avg <  35
-    # Pipeline.thresholdMethods[1]['vlow'] =  'cmb_mag_x'             ## VLOW_THRESHOLDING    -       avg <  35
-    Pipeline.thresholdMethods[1]['hisat']  =  'cmb_mag_x'             ## HISAT_THRESHOLDING
-    Pipeline.thresholdMethods[1]['lowsat'] =  'cmb_hue_mag_sat'       ## LOWSAT_THRESHOLDING
+    # Pipeline.thresholdMethods[1]['xhigh']  =  'cmb_mag_x'             ## HISAT_THRESHOLDING     205 < avg
+    # Pipeline.thresholdMethods[1]['high']   =  'cmb_hue_mag_lvl_x'     ## HIGH_THRESHOLDING      170 < avg < 205
+    # Pipeline.thresholdMethods[1]['med']    =  'cmb_hue_mag_lvl_x'     ## NORMAL_THRESHOLDING  - 100 < avg < 170
+    # Pipeline.thresholdMethods[1]['low']    =  'cmb_hue_mag_x'         ## LOW_THRESHOLDING     -  35 < avg < 130
+    # Pipeline.thresholdMethods[1]['vlow']   =  'cmb_hue_mag_x'         ## VLOW_THRESHOLDING    -       avg <  35
+    # Pipeline.thresholdMethods[1]['hisat']  =  'cmb_mag_x'             ## HISAT_THRESHOLDING
+    # Pipeline.thresholdMethods[1]['lowsat'] =  'cmb_hue_mag_sat'       ## LOWSAT_THRESHOLDING
 
 
     # Pipeline.ImageThresholds[1]['xhigh']  = {
@@ -471,12 +439,7 @@ def harder_challenge_overrides(Pipeline):
     }
 
 
-    Pipeline.itStr = {1: {} , 2: {} }
-    for mode in [1,2]:
-        for cond in Pipeline.ImageThresholds[mode].keys():
-            Pipeline.itStr[mode][cond] = {}
-            for thr in Pipeline.ImageThresholds[mode][cond].keys():
-                Pipeline.itStr[mode][cond][thr] = str(Pipeline.ImageThresholds[mode][cond][thr]) if Pipeline.ImageThresholds[mode][cond][thr] else 'None'
+    Pipeline.thresholds_to_str(debug = True)
 
     print('--- all done' )
     return
