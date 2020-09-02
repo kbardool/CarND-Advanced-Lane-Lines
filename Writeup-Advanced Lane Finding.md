@@ -1,6 +1,29 @@
-## Advanced Lane Finding Project
+﻿
+# Advanced Lane Finding Project
+### Project 2 - Udacity Self Driving Car Nanodegree 
+#### Kevin Bardool
 
-Kevin Bardool
+<!-- markdownlint-disable MD033 -->
+<!-- <head> -->
+<!-- <link rel="stylesheet"  href="markdown_styles.css" /> -->
+<!-- </head> -->
+<!-- @import "markdown-styles.css" -->
+<!-- (setq markdown-xhtml-header-content) -->
+<style type='text/css'>
+.caption {
+    margin: 10px 50px;
+        color: red;
+        width: 100%;
+        text-align: center;
+        font-weight: bold;
+}
+.redcode {
+    	color:Red;
+        font-weight: bold;
+}    
+</style>
+
+
 
 ---
 
@@ -18,7 +41,8 @@ The goals / steps of this project are the following:
 ---
 The goals / steps of this writeup: 
 * Review of the camera calibration process
-* Review of the advanced line detection pipeline
+* Review of the advanced line detection pipeline for static images
+* Review of the advanced line detection pipeline for videos
 * Reflection on work - challenges encountered and  possible improvements. 
 
 
@@ -33,93 +57,218 @@ The goals / steps of this writeup:
 [image5]: ./examples/color_fit_lines.jpg "Fit Visual"
 [image6]: ./examples/example_output.jpg "Output"
 [video1]: ./project_video.mp4 "Video"
+[image01]: ./camera_cal/calibration1.jpg "calibration1 image"
+[image02]: ./camera_cal/calibration4.jpg "calibration4"
+[image03]: ./camera_cal/calibration5.jpg "calibration5"
+[image04]: ./writeup_images/detectcorners2.png "detectcorner2"
+[image05]: ./writeup_images/detectcorners3.png "detectcorner3"
+[image06]: ./writeup_images/undistorted2.png "undistorted2"
+[image07]: ./writeup_images/undistorted3.png "undistorted3"
+
+
 
 <!-- ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.   -->
 
-
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
-
-You're reading it!
-
-### Camera Calibration
+ 
+## Camera Calibration
 
 **1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.**
 
-I implemented the classes `Camera` and `CalibrationImage` for the Camera and images respectively. The code for the implemented classes is located in "./classes/camera"
-and "./classes/image", respectively.
+Classes `Camera` and `CalibrationImage` were implemented for the camera and calibration images respectively. Code for these classes are located in `./classes/camera.py` and `./classes/image.py`
+ 
+The code for this step is contained in the first code cell of the IPython notebook located in "./1-CameraCalebration.ipynb".  
 
-The code for this step is contained in the first code cell of the IPython notebook located in "./1-CameraCalebration.ipynb" (or in lines # through # of the file called `some_file.py`).  
+For each chessboard calibration image, an instance of the `CalibrationImage` is instantiated, and its `findChessboardCorners()` method is called. This function is basically a wrapper for the `cv2.findChessboardCorners()`  also accepting `nx` and `ny` parameters that specify the chessboard dimensions. This allows changing the number of inside corners based on the individual calibration image.
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+This method prepares the  `objectPts` numpy array which contains the (x, y, z) coordinates of the chessboard corners in the real world (assuming the chessboard is fixed on the (x, y) plane at z=0).  The result of the corner detection, `imagePts`, is a `[nx, ny]` array of the (x, y) pixel position of each of the successfully detected corners in the chessboard image plane.
 
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
+### Examples of successful corner detections:
+ 
+<img title="image02 corner detection" alt="alt" src="./writeup_images/detectcorners2.png" style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
-![alt text][image1]
+<img title="image03 corner detection" alt="alt" src="./writeup_images/detectcorners3.png"  
+style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
-### Pipeline (single images)
+### Corner detection failures
+
+When running the detection process for all calibration images using parameters `(nx,ny) = (9,6)` we observe that the corner detection fails for `calibration1.jpg`, `calibration4.jpg`, and `calibration5.jpg`.
+
+The openCV documentation states:
+>The function requires white space (like a square-thick border, the wider the better) around the board to make the detection more robust in various environments. Otherwise, if there is no border and the background is dark, the outer black squares cannot be segmented properly and so the square grouping and ordering algorithm fails.
+
+The three failed images are all missing a sufficient white border on two or more sides of the chessboard:
+
+<div>
+<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  style="border:3px solid black; width: 32%" />
+</div>
+
+
+However, it is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted.
+
+
+Image objects that successfully pass the corner detection process are saved in a list that is passed to the `camera.calibrate()` method. This method passes real world points `image.objPoints` and the equivalent image coordinates `image.imgPoints`  to compute the camera's calibration matrix and distortion coefficients as well as the rotation/translation vectors for each image).
+ 
+Once the camera calibration matrix has been calculated, it is possible to undistort images - two examples of undistorted images are shown below:
+
+<img title="undistorted image02" alt="alt" src="./writeup_images/undistorted2.png"  style=" margin:10px 50px; width: 100%" />
+ 
+<img title="undistorted image02" alt="alt" src="./writeup_images/undistorted3.png"  style=" margin:10px 50px; width: 100%" />
+<figcaption class=caption>Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image </figcaption>
+ 
+
+
+## Lane Detection Pipeline (single images)
 
 #### 1. Provide an example of a distortion-corrected image.
 
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
 
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+<img title="undistorted test4" alt="alt" src="./writeup_images/img_Undist_test4.png"  style=" margin:10px 50px; width: 100%" />
+<img title="undistorted test6" alt="alt" src="./writeup_images/img_Undist_test6.png"  style=" margin:10px 50px; width: 100%" />
+<figcaption class=caption>Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</figcaption>
+<br></br>
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.  
 
-![alt text][image3]
+A number of thresholding methods were implemented and experimented with in order to select a robust thresholded binary image that will work for most lighting combinations. 
+
+*   X and Y Gradient 
+*   Gradient Magnitude and Threshold
+*   RGB Channel Thresholds (Channel AND and OR) 
+*   Hue Thresholding (on image HLS format)
+*   Level Thresholding (on image HLS format)
+*   Saturation Thresholding (on image HLS format)
+
+The code for these various thresholding methods can be found in <code class=redcode>./common/sobel.py</code>. I experimented with a number of other methods such as erosion, dilation, opening and closing however did not find them to improve the thresholding process significantly. 
+
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_Thresholding_test4_A.png"  style=" margin:10px 40px; width: 100%" />
+<figcaption class=caption>Example of various thresholding operations</figcaption>
+<br>
+
+To create the final thresholded image, we experimented creating a **compound** binary threshold image by combining various individual threshold operations. Eventually a combination of X Gradient, Gradient magnitude and direction, Saturation, and RGB levels was selected with the following threshold limits:
+
+|  Point Location  |   Thresholding Limits (Min/Max)|
+|:----------------:|:------------------------------:|
+|  X Gradient      |  (30, 110)  |
+|  Gradient Magnitude |  (65, 255)  |
+|  Gradient Direction |  (40, 65)   (slope in degrees)  |
+|  Saturation      |  (200,255)  |
+|  RGB Levels      |  (210, 255) |
+
+Images below demonstrate various combinations of compound binary thresholding operations.
+
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_Thresholding_test4_B.png"  style=" margin:10px 40px; width: 100%" />
+<figcaption class=caption>Example of compound binary thresholds </figcaption>
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_Thresholding_test5_A.png"  style=" margin:10px 40px; width: 100%" />
+<figcaption class=caption>Example of image and selected compound threshold image</figcaption>
+<br>
+
 
 #### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+Perspective transformation is done in <code class=redcode>perspectiveTransform()</code> located in `./common/sobel.py` lines 18 to 28.  `perspectiveTransform()` takes receives source (`source`) and destination (`dest`) points, and the image to transform. It first calls `cv2.getPerspectiveTransform()` to obtain the transformation matrix `M`. Next, it calls `cv2.warpPerspective()` to apply the perspective transformation on the input image using the calculated transformation matrix.   
 
-```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-```
 
-This resulted in the following source and destination points:
+The exact coordinates of source and destination points used for the transformation were selected through a review of a number of test images, aiming to convert the converging lane lines to parallel lines post transformation. 
 
-| Source        | Destination   | 
-|:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
+We ended up using the following source and destination points:
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+|  Point Location  |   Source    | Destination  | 
+|:----------------:|:-----------:|:------------:| 
+|  Top Left        |  570, 465   |  300, 0      | 
+|  Top Right       |  714, 465   | 1000, 0      |
+|  Bottom Right    | 1090, 700   | 960, 719     |
+|  Bottom Left     |  220, 700   | 960, 719     |
 
-![alt text][image4]
+The perspective transform was tested` by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_RoI_sline1.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_RoI_test4.png"  style=" margin:10px 40px; width: 100%" />
+<figcaption class=caption>Example of perspective transformation</figcaption>
+<br>
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+<code class=redcode>sliding _window_detection_v1()</code> is the routine responsible for lane-pixel identification. This code is located `common/utils.py`, lines 1155-1325.  This routine first generates a histogram of active pixels in the lower 1/3rd of the thresholded image, detects the peak positions (counting the pixels per x position) and finds the x location corresponding to the peak positions located on the left and right of the x-axis midline.
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_A.png"  style=" margin:10px 40px; width: 100%" /> 
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_B.png"  style=" margin:1px 40px; width: 100%" />
 
-![alt text][image5]
+The \(X_{left}\) and \(X_{right}\) positions are used as starting points in the sliding window algorithm we use to search for left and right lane pixels. The first windows are centered at \(X_{left}\) and \(X_{right}\), respectively. For each window, the non-zero pixels located within the window region are selected and counted.
+
+```python
+# Identify the nonzero pixels in x and y within each window.nonzerox and nonzeroy are the x,y # 
+# coordiantes of all non-zero pixels in the binary thresholded image. 
+left_x_inds = np.where((win_xleft_low <=  nonzerox) & (nonzerox < win_xleft_high))
+left_y_inds = np.where((win_y_low     <=  nonzeroy) & (nonzeroy < win_y_high))
+good_left_inds = np.intersect1d(left_x_inds,left_y_inds,assume_unique=False)
+
+right_x_inds = np.where((win_xright_low <= nonzerox) & (nonzerox < win_xright_high))
+right_y_inds = np.where((win_y_low     <=  nonzeroy) & (nonzeroy < win_y_high))
+good_right_inds = np.intersect1d(right_x_inds,right_y_inds,assume_unique=False)
+###------------------------------------------------------------------------------------
+``` 
+
+If the number of detected pixels within a window region is less than the `minpix` parameter, it is assumed that pixel detection for that window has failed. In this case the center position of the current window is reused for the next window iteration. Otherwise, detected pixels are appended to a list for further processing.
+
+ An example of the sliding window process and detected lane pixels on the binary thresholded image is displayed below:
+
+
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_D1.png"  
+style=" margin:1px 40px; width: 100%" />
+<figcaption class=caption>Example of lane pixel detection using the sliding window algorithm</figcaption>
+<br>
+ 
+The X and Y coordinates of the selected pixels (red and blue pixels in image above) are the passed on to the line fitting process, <code class=redcode>fit_polynomial_v1</code> ( `common/utils.py`, lines 347-361). This routine calls `np.polyfit` to fit a second degree polynomial over the detected pixels. 
+
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_C.png"  
+style=" margin:1px 40px; width: 100%" />
+<figcaption class=caption>Example of lane pixel detection and fitted polynomials</figcaption>
+<br>
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+For lane detection on images, radius of curvature calculation is performed in  <code class=redcode>calculate_radius()</code> ( `common/utils.py`, lines 720-728):
+
+```
+def calculate_radius(y_eval, fit_coeffs, units, MX_denom = 700, MY_denom = 720, debug = False):
+    MY = 30/MY_denom # meters per pixel in y dimension
+    MX= 3.7/MX_denom # meters per pixel in x dimension
+    A,B,_ = fit_coeffs   
+    if units == 'm':
+        A = (A * MX)/ (MY**2)
+        B = (B * MX/MY)
+    
+    return  ((1 + ((2*A*(y_eval*MY))+B)**2)** 1.5)/np.absolute(2*A) 
+```
+
+The curvature message displayed on the image is build in  <code class=redcode>curvatureMsg_V1()</code> ( `common/utils.py`, lines 730-745)
+
+The off-center calculation and message generation is done in  <code class=redcode>offCenterMsg_V1()</code> ( `common/utils.py`, lines 763-797)
+
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+The code to plot / overlay the detected lanes back onto the image is implemented in <code class=redcode>displayDetectedRegion_v1()</code> ( `common/utils.py`, lines 657-707). The necessary overlay is constructed and added to the input image using `cv2.addWeighted()` function.  
 
-![alt text][image6]
 
----
+<div>
+<img title="calibration image01" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image04" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image05" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<figcaption class=caption>Results of lane detection over images test1 - test3</figcaption>
+<br>
+<img title="calibration image01" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image04" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<br>
+<figcaption class=caption>Results of lane detection over images test4 - test6</figcaption>
+</div>
 
-### Pipeline (video)
+## Lane Detection Pipeline (video)
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 

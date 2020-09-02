@@ -13,7 +13,7 @@ import winsound
 from collections import deque, defaultdict
 from classes.line import Line
 from classes.plotting import PlotDisplay
-from common.utils import (find_lane_pixels  , search_around_poly, 
+from common.utils import (sliding_window_detection  , polynomial_proximity_detection, 
                           offCenterMsg      , curvatureMsg      , colorLanePixels   , displayPolynomial      , displayRoILines,  
                           displayDetectedRegion   , displayText , displayGuidelines , displayPolySearchRegion, 
                           display_one, display_two, display_multi )
@@ -346,7 +346,7 @@ class ALFPipeline(object):
             reset_search_base    = (self.firstFrame  or self.imgAcceptHistory[-1] < -10) ##  or not (self.validLaneDetections)
             if self.RoIAdjustment  :
                 reset_search_base = False
-            self.out_img, self.histogram, self.detStats = find_lane_pixels(self.working_image, 
+            self.out_img, self.histogram, self.detStats = sliding_window_detection(self.working_image, 
                                                                            self.LeftLane, self.RightLane, 
                                                                            nwindows        = self.NWINDOWS, 
                                                                            histWidthRange  = self.HISTOGRAM_WIDTH_RANGE, 
@@ -357,7 +357,7 @@ class ALFPipeline(object):
                                                                            debug2 = self.debug2) 
 
         else:    
-            self.out_img, self.histogram, self.detStats = search_around_poly(self.working_image, 
+            self.out_img, self.histogram, self.detStats = polynomial_proximity_detection(self.working_image, 
                                                                              self.LeftLane, self.RightLane, 
                                                                              search_margin   = self.POLY_SRCH_MRGN, 
                                                                              debug = self.debug)
@@ -422,6 +422,7 @@ class ALFPipeline(object):
 
         msgs = []
         image_conditions = []
+        
         ##------------------------------------------------------------------------------------------
         ##  Frame / Lane detection Quality checks 
         ##------------------------------------------------------------------------------------------
@@ -681,7 +682,6 @@ class ALFPipeline(object):
 
         left_ckpts  = self.LeftLane.best_linepos if self.LeftLane.acceptPolynomial else self.LeftLane.current_linepos
         right_ckpts = self.RightLane.best_linepos if self.RightLane.acceptPolynomial else self.RightLane.current_linepos
-        
         
         diff = right_ckpts - left_ckpts
         min_diff = np.round(diff.min(),0)

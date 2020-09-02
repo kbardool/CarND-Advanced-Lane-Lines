@@ -7,9 +7,6 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=2, width=100)
 
-# pp.pprint(sys.modules)
-# pp.pprint(sys.path)
-
 class Camera():
     def __init__(self, width, height):
     
@@ -48,7 +45,7 @@ class Camera():
         if self.cameraMatrix is None:
             print(' ERROR: Camera calibration matrix has not been computed yet! ')
             print('        Calibrate Camera before attempting to undistort an Image ')
-            return False
+            return None
             
         return cv2.undistort(inputImg, self.cameraMatrix, self.distCoeffs, None, self.cameraMatrix)
         

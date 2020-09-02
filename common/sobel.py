@@ -7,15 +7,13 @@ from .utils import get_ax, display_one, display_two, display_multi
 deg2rad = lambda  x: x * np.pi/180
 rad2deg = lambda  x: x * 180 / np.pi
 
-
-
-
 def convert_to_gray(img):
     if img.ndim == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     else:
         gray = np.copy(img)
     return gray
+
 
 def perspectiveTransform(img, source, dest, debug = False):
 
@@ -25,12 +23,22 @@ def perspectiveTransform(img, source, dest, debug = False):
     if debug: 
         print('src: ', type(source), source.shape, ' - ',  source)
         print('dst: ', type(dest), dest.shape, ' - ',  dest)
-        print(' M: ', M.shape, ' Minv: ', Minv)
+        print(' M: \n', M, '\n M inverse: \n', Minv)
         
     return cv2.warpPerspective(img, M, img.shape[1::-1], flags=cv2.INTER_LINEAR), M, Minv
 
+# Uses WARP_INVERSE_MAP
+# def perspectiveTransform2(img, source, dest, debug = False):
+#     M = cv2.getPerspectiveTransform(source, dest)
+#     Minv = cv2.getPerspectiveTransform(dest, source)    
+#     if debug: 
+#         print('src: ', type(source), source.shape, ' - ',  source)
+#         print('dst: ', type(dest), dest.shape, ' - ',  dest)
+#         print(' M: ', M.shape, ' Minv: ', Minv)
+#     return cv2.warpPerspective(img, M, img.shape[1::-1], flags=cv2.INTER_LINEAR+cv2.WARP_INVERSE_MAP), M, Minv
 
 def unwarpImage(img, nx, ny, cam, dst, debug = False):
+    """
     # 1) Undistort using mtx and dist
     # 2) Convert to grayscale
     # 3) Find the chessboard corners
@@ -45,7 +53,8 @@ def unwarpImage(img, nx, ny, cam, dst, debug = False):
             # c) define 4 destination points dst = np.float32([[,],[,],[,],[,]])
             # d) use cv2.getPerspectiveTransform() to get M, the transform matrix
             # e) use cv2.warpPerspective() to warp your image to a top-down view
-    
+    """
+
     ## 1. UNDISTORT 
     undist = cv2.undistort(img, cam.cameraMatrix, cam.distCoeffs, None, cam.cameraMatrix)
     
@@ -55,33 +64,31 @@ def unwarpImage(img, nx, ny, cam, dst, debug = False):
     ## 3. Find corners
     ret, corners = cv2.findChessboardCorners(imgGray, (nx, ny), cv2.CALIB_CB_ADAPTIVE_THRESH)
     if ret:
-        if debug:
-            print(' img shape: ',undist.shape[1::-1])
-            print(' ret    : ', ret)
-            if ret:
-                print(' Corners: ', corners.shape)
-                # print(corners)
 
         cornerCount = corners.shape[0]
-        if (cornerCount % nx) != 0:
-            print(' Not all corners have been detected!! nx:', nx, ' ny: ', ny, ' corners detected: ', cornerCount)
-            M = np.eye(3)
-        else:
+        if (cornerCount % nx) == 0:
             ## 4a. if corners found Draw corners 
             cv2.drawChessboardCorners(undist, (nx, ny), corners, ret)        
             
-            ## 4b. define 4 source pointsl        
+            ## 4b. define 4 source points        
             src = np.float32([corners[0,0], corners[nx-1,0], corners[nx*(ny-1),0], corners[nx*ny-1,0]])
 
             ## 4c. define 4 destination points
-            
-            ## 4d. get M tranform matrix     
+            ## passed as parameters 
+
+            ## 4d. get M tranformation matrix     
             M = cv2.getPerspectiveTransform(src, dst)
 
             if debug: 
-                print('src: ', type(src), src.shape, ' - ',  src)
-                print('dst: ', type(dst), dst.shape, ' - ',  dst)
-                print(' M:', M.shape)
+                print(' img shape: ',undist.shape, ' Corners detected: ', corners.shape[0], 
+                    ' M:', M.shape)
+                print( f' src point (corner {0:2d}, 0): {src[0]}  tranformed to  dst point: {dst[0]}')
+                print( f' src point (corner {nx-1:2d}, 0): {src[1]}  tranformed to  dst point: {dst[1]}')
+                print( f' src point (corner {nx*(ny-1):2d}, 0): {src[2]}  tranformed to  dst point: {dst[2]}')
+                print( f' src point (corner {nx*ny-1:2d}, 0): {src[3]}  tranformed to  dst point: {dst[3]}')
+        else:
+            print(' Not all corners have been detected!! nx:', nx, ' ny: ', ny, ' corners detected: ', cornerCount)
+            M = np.eye(3)
     else:
         M = np.eye(3)
         
@@ -156,7 +163,7 @@ def gaussian_blur(img, kernel_size):
     """Applies a Gaussian Noise kernel"""
     return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
-
+"""
 def grad_abs_thresh(img_gray, orient='x', sobel_kernel=3 , thresh=(0, 255), display = False):
     '''
     2) Take the derivative in x or y given orient = 'x' or 'y'
@@ -193,11 +200,13 @@ def grad_abs_thresh(img_gray, orient='x', sobel_kernel=3 , thresh=(0, 255), disp
         display_one(filtered_sobel, title='filtered_sobel - orientation: '+orient+' within thresholds: '+thresh_str, cmap='jet')
         display_one(binary_output , title='result image - orientation: '+orient+'  thresholds: '+thresh_str, cbar =True)
     return binary_output
+"""
+
 
 def grad_x_thresh(img_gray, sobel_kernel=3 , thresh=(0, 255), display = False):
-    '''
+    """
     Theresholding on derivative in X orientation 
-    '''
+    """
     abs_sobel = np.absolute(cv2.Sobel(img_gray, cv2.CV_64F, 1, 0, ksize = sobel_kernel))
     scaled_sobel = np.uint8(255 * abs_sobel / abs_sobel.max())
     
@@ -212,15 +221,16 @@ def grad_x_thresh(img_gray, sobel_kernel=3 , thresh=(0, 255), display = False):
         print('grad_abs_thresh(): input:', img_gray.shape, ' min: ', img_gray.min(), ' max: ', img_gray.max())
         filtered_sobel = np.copy(scaled_sobel)
         filtered_sobel[(scaled_sobel < thresh[0]) | (scaled_sobel > thresh[1])] = 0
+        
         display_one(scaled_sobel  , title='scaled_sobel  - thresholds: '+thresh_str, cmap='jet', cbar =True)
         display_one(filtered_sobel, title='filtered_sobel- within    : '+thresh_str, cmap='jet', cbar =True)
         display_one(binary_output , title='result image  - thresholds: '+thresh_str, cbar =True)
     return binary_output
 
 def grad_y_thresh(img_gray, sobel_kernel=3 , thresh=(0, 255), display = False):
-    '''
+    """
     Theresholding on derivative in Y orientation 
-    '''
+    """
     abs_sobel = np.absolute(cv2.Sobel(img_gray, cv2.CV_64F, 0, 1, ksize = sobel_kernel))
     scaled_sobel = np.uint8(255 * abs_sobel / abs_sobel.max())
     
@@ -230,7 +240,7 @@ def grad_y_thresh(img_gray, sobel_kernel=3 , thresh=(0, 255), display = False):
 
 
 def grad_mag_thresh(img_gray, sobel_kernel=3, thresh=(0, 255), display = False):
-    '''
+    """
     Define a function that applies Sobel x and y, 
     then computes the magnitude of the gradient
     and applies a threshold
@@ -241,7 +251,7 @@ def grad_mag_thresh(img_gray, sobel_kernel=3, thresh=(0, 255), display = False):
      4) Scale to 8-bit (0 - 255) and convert to type = np.uint8
      5) Create a binary mask where mag thresholds are met
      6) Return this mask as your binary_output image
-    ''' 
+    """ 
     
     thresh_min, thresh_max = thresh
     
@@ -273,11 +283,10 @@ def grad_mag_thresh(img_gray, sobel_kernel=3, thresh=(0, 255), display = False):
     return binary_output
 
 def grad_dir_thresh(img_gray, sobel_kernel=3, thresh=(0,90), display = False):
-    '''
+    """
     applies Sobel x and y, then computes the direction of the gradient
     and applies a threshold.
 
-    '''
     # Apply the following steps to img
     # 1) Convert to grayscale
     # 2) Take the gradient in x and y separately
@@ -285,6 +294,7 @@ def grad_dir_thresh(img_gray, sobel_kernel=3, thresh=(0,90), display = False):
     # 4) Use np.arctan2(abs_sobely, abs_sobelx) to calculate the direction of the gradient 
     # 5) Create a binary mask where direction thresholds are met
     # 6) Return this mask as your binary_output image
+    """
 
     thresh_rad_low  = deg2rad(thresh[0]) 
     thresh_rad_high = deg2rad(thresh[1])
@@ -349,15 +359,12 @@ def RGB_thresh(img, thresh=(0, 255),  display = False):
     blue_binary  = color_thresh(s_channel, thresh = thresh, channel = 2, display = display)
  
     binary_output = ((red_binary == 1) | (green_binary == 1)| (blue_binary ==1)).astype(np.uint8) 
-
     thresh_str = str(thresh)
     
     if display:
-        
         filtered_dir = np.copy(s_channel)
         filtered_dir[(s_channel < thresh[0]) | (s_channel > thresh[1])] = 0
         # filtered_dir = s_channel * np.dstack((binary_output,binary_output,binary_output))
-   
         print(' filtered_dir : ', filtered_dir.shape)
         print(' s_channel    : ', s_channel.shape)
         print(' binary_output: ', binary_output.shape)
@@ -368,15 +375,37 @@ def RGB_thresh(img, thresh=(0, 255),  display = False):
     
     return binary_output
     
+def RGB_AND_thresh(img, thresh=(0, 255),  display = False):
+    s_channel = np.copy(img)
+    red_binary   = color_thresh(s_channel, thresh = thresh, channel = 0 ,display = display)
+    green_binary = color_thresh(s_channel, thresh = thresh, channel = 1, display = display)
+    blue_binary  = color_thresh(s_channel, thresh = thresh, channel = 2, display = display)
+
+    binary_output = ((red_binary == 1) & (green_binary == 1) & (blue_binary ==1)).astype(np.uint8) 
+    thresh_str = str(thresh)
+
+    if display:
+        filtered_dir = np.copy(s_channel)
+        filtered_dir[(s_channel < thresh[0]) | (s_channel > thresh[1])] = 0
+        # filtered_dir = s_channel * np.dstack((binary_output,binary_output,binary_output))   
+        print(' filtered_dir : ', filtered_dir.shape)
+        print(' s_channel    : ', s_channel.shape)
+        print(' binary_output: ', binary_output.shape)
+        display_one(s_channel, title='RGB channels   Min: ' +str(s_channel.min())+ ' Max: '+str(s_channel.max()) )    
+        display_one(filtered_dir , title='filtered_grad - within thresholds: '+thresh_str+' Min: ' +str(filtered_dir.min())+ ' Max: '+str(filtered_dir.max()) )        
+        print(binary_output.shape, binary_output.min(), binary_output.max())
+        display_one(binary_output, title='Thresholded Output - thresholds: '+thresh_str)    
+    
+    return binary_output
 
 def hue_thresh(img_hls, thresh=(0, 255), display = False):
-    # 1) Convert to HLS color space
-    # 2) Apply a threshold to the S channel
-    # 3) Return a binary image of threshold result
-    # hlsImage = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-    # binary_output = np.zeros_like(s_channel)
-    # binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 
-    
+    """
+    2) Apply a threshold to the S channel
+    3) Return a binary image of threshold result
+    hlsImage = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    binary_output = np.zeros_like(s_channel)
+    binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 
+    """
     s_channel = img_hls[:,:,0]    
     binary_output = ((s_channel >= thresh[0]) & (s_channel <= thresh[1])).astype(np.uint8)
     
@@ -393,11 +422,11 @@ def hue_thresh(img_hls, thresh=(0, 255), display = False):
     return binary_output
 
 def level_thresh(img_hls, thresh=(0, 255), display = False):
-    # 1) Convert to HLS color space
-    # 2) Apply a threshold to the S channel
-    # 3) Return a binary image of threshold result
-    # hlsImage = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-
+    """
+    2) Apply a threshold to the S channel
+    3) Return a binary image of threshold result
+    hlsImage = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    """
     # binary_output = np.zeros_like(s_channel)
     # binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 1
     thresh_str = str(thresh)
@@ -421,12 +450,13 @@ def level_thresh(img_hls, thresh=(0, 255), display = False):
     return binary_output
 
 def saturation_thresh(img_hls, thresh=(0, 255), display = False):
-    # 1) Convert to HLS color space
+    """
     # 2) Apply a threshold to the S channel
     # 3) Return a binary image of threshold result
     # hlsImage = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     # binary_output = np.zeros_like(s_channel)
     # binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 1
+    """
 
     s_channel = img_hls[:,:,2]
     binary_output = ((s_channel >= thresh[0]) & (s_channel <= thresh[1])).astype(np.uint8)
@@ -569,16 +599,16 @@ def apply_thresholds(img,  thrshlds , **kwargs):
         results['cmb_y'] = grad_y_thresh(img_gray, sobel_kernel=thrshlds['ksize'], thresh=thrshlds['y_thr'])
 
     if thrshlds['mag_thr'] is None :
-        mag_thr = np.copy(empty_shape)
+        mag_binary = np.copy(empty_shape)
     else:
-        mag_thr = grad_mag_thresh(img_gray, sobel_kernel=thrshlds['ksize'], thresh=thrshlds['mag_thr'])
+        mag_binary = grad_mag_thresh(img_gray, sobel_kernel=thrshlds['ksize'], thresh=thrshlds['mag_thr'])
     
     if thrshlds['dir_thr'] is None:
-        dir_thr = np.copy(empty_shape)
+        dir_binary = np.copy(empty_shape)
     else:
-        dir_thr  = grad_dir_thresh(img_gray, sobel_kernel=thrshlds['ksize'], thresh=thrshlds['dir_thr'])
+        dir_binary  = grad_dir_thresh(img_gray, sobel_kernel=thrshlds['ksize'], thresh=thrshlds['dir_thr'])
 
-    results['cmb_mag'] = mag_thr & dir_thr 
+    results['cmb_mag'] = mag_binary & dir_binary 
 
     if thrshlds['rgb_thr'] is None:
         results['cmb_rgb']= np.copy(empty_shape)
@@ -638,18 +668,17 @@ def apply_thresholds(img,  thrshlds , **kwargs):
     results['cmb_sat_mag_x'] = results['cmb_sat_mag']  | results['cmb_x']  
 
     if debug2:
-        # fig = plt.figure(figsize=(25,28))
         fig, axs = plt.subplots(5,2,figsize=(25,28))
-        axs[0,0].imshow(img)                             ;  axs[0,0].set_title(' input image: '+str(img.shape[0])+' x '+str(img.shape[1]))
-        axs[0,1].imshow(results['cmb_x']  , cmap ='gray');  axs[0,1].set_title('grad x thresholding: '     + str(thrshlds['x_thr']))
-        axs[1,0].imshow(results['cmb_y']  , cmap ='gray');  axs[1,0].set_title('grad y thresholding: '     + str(thrshlds['y_thr'])) 
-        axs[1,1].imshow(results['cmb_sat'], cmap ='gray');  axs[1,1].set_title('Saturation thresholding '  + str(thrshlds['sat_thr']))
-        axs[2,0].imshow(results['cmb_lvl'], cmap ='gray');  axs[2,0].set_title('Level Thresholding '       + str(thrshlds['lvl_thr']))        
-        axs[2,1].imshow(mag_thr           , cmap ='gray');  axs[2,1].set_title('magnitude thresholding: '  + str(thrshlds['mag_thr']))
-        axs[3,0].imshow(dir_thr           , cmap ='gray');  axs[2,1].set_title('Directional thresholding: '+ str(thrshlds['dir_thr']))
-        axs[3,1].imshow(results['cmb_mag'], cmap ='gray');  axs[3,1].set_title('Mag and Dir thresholding: '+ str(thrshlds['mag_thr']))
-        axs[4,0].imshow(results['cmb_hue'], cmap ='gray');  axs[3,0].set_title('Hue thresholding: '        + str(thrshlds['hue_thr']))
-        axs[4,1].imshow(results['cmb_mag_xy'], cmap ='gray');  axs[3,0].set_title('cmb_mag_xy:  (mag | xy)'+ str(thrshlds['mag_thr']))
+        axs[0,0].imshow(img)                               ; axs[0,0].set_title('Distortion corrected input image: '+str(img.shape))
+        axs[0,1].imshow(results['cmb_x']  , cmap ='gray')  ; axs[0,1].set_title('x gradient  thresholding: '     + str(thrshlds['x_thr']))
+        axs[1,0].imshow(results['cmb_y']  , cmap ='gray')  ; axs[1,0].set_title('y gradient thresholding: '     + str(thrshlds['y_thr'])) 
+        axs[1,1].imshow(results['cmb_sat'], cmap ='gray')  ; axs[1,1].set_title('Saturation thresholding '  + str(thrshlds['sat_thr']))
+        axs[2,0].imshow(results['cmb_lvl'], cmap ='gray')  ; axs[2,0].set_title('Level Thresholding '       + str(thrshlds['lvl_thr']))        
+        axs[2,1].imshow(mag_binary           , cmap ='gray')  ; axs[2,1].set_title('Magnitude thresholding: '  + str(thrshlds['mag_thr']))
+        axs[3,0].imshow(dir_binary           , cmap ='gray')  ; axs[2,1].set_title('Directional thresholding: '+ str(thrshlds['dir_thr']))
+        axs[3,1].imshow(results['cmb_mag'], cmap ='gray')  ; axs[3,1].set_title('Mag and Dir thresholding: '+ str(thrshlds['mag_thr']))
+        axs[4,0].imshow(results['cmb_hue'], cmap ='gray')  ; axs[4,0].set_title('Hue thresholding: '        + str(thrshlds['hue_thr']))
+        axs[4,1].imshow(results['cmb_mag_xy'],cmap ='gray'); axs[4,0].set_title('cmb_mag_xy:  (mag | xy) '  + str(thrshlds['mag_thr']))
         plt.show()
 
     if debug:
@@ -674,7 +703,114 @@ def apply_thresholds(img,  thrshlds , **kwargs):
         return results[ret]    
     else:
         return results
+
+
+
+def apply_image_thresholds(img, **kwargs ):
+
+    ret     = kwargs.get('ret'    , None)
+    ksize   = kwargs.get('ksize'  , 10)
+    x_thr   = kwargs.get('x_thr'  , 0)
+    y_thr   = kwargs.get('y_thr'  , None)
+    mag_thr = kwargs.get('mag_thr', None)
+    dir_thr = kwargs.get('dir_thr', None)
+    rgb_thr = kwargs.get('rgb_thr', None)
+    lvl_thr = kwargs.get('lvl_thr', None)
+    sat_thr = kwargs.get('sat_thr', None)
+    hue_thr = kwargs.get('hue_thr', None)
+    debug   = kwargs.get('debug' , False)
+    debug2  = kwargs.get('debug2', False)        
+    results    = {}
+    ttl_pixels = img.shape[0] * img.shape[1]
+    half_pxls  = ttl_pixels // 2    
+    img_gray   = convert_to_gray(img)
+    img_hls    = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    
+    empty_shape = np.zeros((img.shape[0], img.shape[1]),dtype = np.uint8)
+   
+    # Apply each of the thresholding functions
+    results['cmb_x']   = grad_x_thresh(img_gray, sobel_kernel=ksize, thresh=x_thr)
+
+    if y_thr is None :
+        results['cmb_y'] = np.ones_like(results['cmb_x'])
+    else:
+        # results['cmb_y'] = grad_abs_thresh(img_gray, orient='y', sobel_kernel=ksize, thresh=y_thr)
+        results['cmb_y'] = grad_y_thresh(img_gray, sobel_kernel=ksize, thresh=y_thr)
+    
+    if mag_thr is None:
+        mag_binary = np.zeros_like(results['cmb_x'])
+    else:
+        mag_binary = grad_mag_thresh(img_gray, sobel_kernel=ksize, thresh=mag_thr)
+    
+    if dir_thr is None:
+        dir_binary = np.zeros_like(results['cmb_x'])
+    else:
+        dir_binary = grad_dir_thresh(img_gray, sobel_kernel=ksize, thresh=dir_thr)
+
+    results['cmb_mag'] = mag_binary & dir_binary
+
+    if rgb_thr is None:
+        results['cmb_rgb'] = np.zeros_like(results['cmb_x'])
+    else:
+        results['cmb_rgb'] = RGB_thresh(img, thresh = rgb_thr)
+
+    ## Thresholds based on the HLS color model    
         
+    if lvl_thr is None:
+        results['cmb_lvl'] = np.zeros_like(results['cmb_x'])
+    else:
+        results['cmb_lvl'] = level_thresh(img_hls, thresh = lvl_thr)
+        
+    if sat_thr is None:
+        results['cmb_sat'] = np.zeros_like(results['cmb_x'])
+    else:
+        results['cmb_sat'] = saturation_thresh(img_hls, thresh = sat_thr)
+
+    if hue_thr is None:
+        results['cmb_hue'] = np.copy(empty_shape)
+    else:
+        results['cmb_hue'] = hue_thresh(img_hls, thresh = hue_thr)
+
+    results['cmb_xy'] = results['cmb_x'] | results['cmb_y']
+    results['cmb_mag_x'] = results['cmb_mag'] | results['cmb_x']  
+    results['cmb_mag_xy'] = results['cmb_mag'] | results['cmb_xy']   
+
+    # results['cmb_rgb_lvl'] = results['cmb_rgb']  | results['cmb_lvl']  
+    results['cmb_rgb_mag'] = results['cmb_rgb']  | results['cmb_mag']  
+    results['cmb_rgb_sat'] = results['cmb_rgb'] | results['cmb_sat']  
+    results['cmb_rgb_sat_mag'] = results['cmb_rgb_sat'] |  results['cmb_mag']  
+    results['cmb_rgb_sat_mag_x'] = results['cmb_rgb_sat_mag'] | results['cmb_x']
+    # results['cmb_rgb_sat_mag_x_lvl'] = results['cmb_rgb_sat_mag_x_lvl'] | results['cmb_lvl']
+
+    if debug:
+        fig, axs = plt.subplots(5,2,figsize=(20,30))
+        axs[0,0].imshow(img)                             ; axs[0,0].set_title('Distortion-corrected input image')
+        axs[0,1].imshow(results['cmb_x']  , cmap ='gray'); axs[0,1].set_title('x gradient thresholding: ' + str(x_thr))
+        axs[1,0].imshow(results['cmb_y']  , cmap ='gray'); axs[1,0].set_title('y gradient thresholding: ' + str(y_thr)) 
+        axs[1,1].imshow(results['cmb_xy'] , cmap ='gray'); axs[1,1].set_title('x/y gradient thresholding x: '+ str(x_thr)+' y: '+str(y_thr))
+        axs[2,0].imshow(mag_binary        , cmap ='gray'); axs[2,0].set_title('Gradient magnitude thresholding:'   + str(mag_thr))
+        axs[2,1].imshow(dir_binary        , cmap ='gray'); axs[2,1].set_title('Gradient directional thresholding: '+ str(dir_thr))
+        axs[3,0].imshow(results['cmb_mag'], cmap ='gray'); axs[3,0].set_title('Magnitude and Directional thresholding: mag: '+ str(mag_thr)+'  dir:'+str(dir_thr))
+        axs[3,1].imshow(results['cmb_rgb'], cmap ='gray'); axs[3,1].set_title('RGB channel thresholding (OR): '+str(rgb_thr))
+        axs[4,0].imshow(results['cmb_sat'], cmap ='gray'); axs[4,0].set_title('Saturation thresholding on HLS image '  + str(sat_thr))        
+        axs[4,1].imshow(results['cmb_lvl'], cmap ='gray'); axs[4,1].set_title('Level thresholding on HLS image: '+str(lvl_thr))
+        plt.show()
+
+        fig, axs = plt.subplots(3,2,figsize=(20,18))
+        axs[0,0].imshow(results['cmb_mag_x']        , cmap ='gray'); axs[0,0].set_title('( (mag/dir)| X )  Mag: '+str(mag_thr)+'  x gradient : '+str(x_thr ))
+        axs[0,1].imshow(results['cmb_mag_xy']       , cmap ='gray'); axs[0,1].set_title('( (mag/dir)| X | Y )  Mag:: '+str(mag_thr)+ ' X: '+ str(x_thr)+' Y: '+str(y_thr))
+        axs[1,0].imshow(results['cmb_rgb_mag']      , cmap ='gray'); axs[1,0].set_title('( RGB | (Mag/Dir))  RGB: '+str(rgb_thr)+ '   Mag:'+str(mag_thr))
+        axs[1,1].imshow(results['cmb_rgb_sat']      , cmap ='gray'); axs[1,1].set_title('( RGB | Sat )  Sat:'+str(sat_thr) )
+        axs[2,0].imshow(results['cmb_rgb_sat_mag']  , cmap ='gray'); axs[2,0].set_title('( RGB | Sat | (Mag/Dir) )  Mag:'+str(mag_thr))
+        axs[2,1].imshow(results['cmb_rgb_sat_mag_x'], cmap ='gray'); axs[2,1].set_title('( RGB | Sat | (Mag/Dir)| X )   X:'+str(x_thr))
+        # axs[4,0].imshow(results['cmb_hue']              , cmap ='gray'); axs[4,0].set_title('Hue thresholding: '        + str(hue_thr))
+        plt.show()
+
+    if ret is not None:
+        return results[ret]    
+    else:
+        return results
+
 def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
     debug   = kwargs.get('debug' ,  False)
     debug2  = kwargs.get('debug2',  False)
@@ -792,135 +928,5 @@ def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
     return  results
 
 
-def apply_thresholds_v1(img, ret = None, ksize = 10, x_thr = 0, y_thr = 0, mag_thr = 0, dir_thr = 0, sat_thr = None,
-                          lvl_thr = None, rgb_thr = None, debug = False):
-       
-    # Apply each of the thresholding functions
-    x_binary   = grad_abs_thresh(img, orient='x', sobel_kernel=ksize, thresh=x_thr)
-
-    if y_thr is None :
-        y_binary = np.ones_like(x_binary)
-    else:
-        y_binary = grad_abs_thresh(img, orient='y', sobel_kernel=ksize, thresh=y_thr)
-    
-    if rgb_thr is None:
-        rgb_binary = np.zeros_like(x_binary)
-    else:
-        rgb_binary = RGB_thresh(img, thresh = rgb_thr)
-        
-    if lvl_thr is None:
-        lvl_binary = np.zeros_like(x_binary)
-    else:
-        lvl_binary = level_thresh(img, thresh = lvl_thr)
-        
-    if sat_thr is None:
-        sat_binary = np.zeros_like(x_binary)
-    else:
-        sat_binary = saturation_thresh(img, thresh = sat_thr)
-    
-    mag_binary = grad_mag_thresh(img, sobel_kernel=ksize, thresh=mag_thr)
-    dir_binary = grad_dir_thresh(img, sobel_kernel=ksize, thresh=dir_thr)
-        
-    results    = {}
-    
-    # cmb_x_sat  = np.zeros_like(dir_binary)
-    # cmb_x_sat[(x_binary == 1) | (sat_binary ==1)] = 1
-    # results['cmb_x_sat'] = cmb_mag_dir
-
-    # cmb_x_sat_mag  = np.zeros_like(dir_binary)
-    # cmb_x_sat_mag[(x_binary == 1) | (cmb_mag_dir == 1) | (sat_binary ==1)] = 1
-    # results['cmb_x_sat_mag'] = cmb_x_sat_mag
-
-    # cmb_x_sat_mag_rgb  = np.zeros_like(dir_binary)
-    # cmb_x_sat_mag_rgb[(x_binary == 1)  | (cmb_mag_dir == 1) | (sat_binary ==1) | (rgb_or_binary == 1)] = 1
-    # results['cmb_x_sat_mag_rgb'] = cmb_x_sat_mag_rgb
-
-    cmb_xy  = np.zeros_like(dir_binary)
-    cmb_xy[ ((x_binary == 1) & (y_binary == 1)) ] = 1
-    results['cmb_xy'] = cmb_xy
-
-    cmb_mag_dir  = np.zeros_like(dir_binary)
-    cmb_mag_dir[ ((mag_binary == 1) & (dir_binary == 1)) ] = 1
-    # results['cmb_mag_dir'] = cmb_mag_dir
-
-    cmb_rgb_lvl = np.zeros_like(dir_binary)
-    cmb_rgb_lvl[ ((rgb_binary == 1) | (lvl_binary == 1)) ] = 1
-    results['cmb_rgb_lvl'] = cmb_rgb_lvl
-
-    cmb_rgb_lvl_sat = np.zeros_like(dir_binary)
-    cmb_rgb_lvl_sat[ ((cmb_rgb_lvl == 1) | (sat_binary == 1)) ] = 1
-    results['cmb_rgb_lvl_sat'] = cmb_rgb_lvl_sat
-
-    cmb_rgb_lvl_sat_mag = np.zeros_like(dir_binary)
-    cmb_rgb_lvl_sat_mag[ (cmb_mag_dir  == 1) | ((cmb_rgb_lvl == 1) | (sat_binary == 1)) ] = 1
-    results['cmb_rgb_lvl_sat_mag'] = cmb_rgb_lvl_sat_mag
-
-    cmb_rgb_lvl_sat_mag_x = np.zeros_like(dir_binary)
-    cmb_rgb_lvl_sat_mag_x[ (cmb_mag_dir  == 1) | ((cmb_rgb_lvl == 1) | (sat_binary == 1) | (x_binary == 1)) ] = 1
-    results['cmb_rgb_lvl_sat_mag_x'] = cmb_rgb_lvl_sat_mag_x
-
-    cmb_mag_x = np.zeros_like(dir_binary)
-    cmb_mag_x[ (cmb_mag_dir  == 1) | (x_binary == 1) ] = 1
-    results['cmb_mag_x'] = cmb_mag_x
-    
-    results['cmb_sat'] = sat_binary
-    results['cmb_lvl'] = lvl_binary
-    
-    
-    if debug:
-        fig = plt.figure(figsize=(25,28))
-        plt.subplot(421);plt.imshow(img); plt.title(' input image: '+str(img.shape[0])+' x '+str(img.shape[1]))
-        plt.subplot(422);plt.imshow(x_binary   , cmap ='gray'); plt.title('grad x thresholding: '+str(x_thr))
-        plt.subplot(423);plt.imshow(y_binary   , cmap ='gray'); plt.title('grad y thresholding: '+str(y_thr)) 
-        plt.subplot(424);plt.imshow(mag_binary , cmap ='gray'); plt.title('magnitude thresholding: '+str(mag_thr))
-        plt.subplot(425);plt.imshow(dir_binary , cmap ='gray'); plt.title('directional thresholding: '+str(dir_thr))
-        plt.subplot(426);plt.imshow(cmb_mag_dir, cmap ='gray'); plt.title('cmb_mag_dir (Dir & Mag) thresholding')
-        plt.subplot(427);plt.imshow(sat_binary , cmap ='gray'); plt.title('Saturation thresholding: '+str(sat_thr)+' ')
-        plt.subplot(428);plt.imshow(lvl_binary , cmap ='gray'); plt.title('Level Thresholding: '+str(lvl_thr)+' ')        
-        plt.show()
-
-        # plt.subplot(424);plt.imshow(cmb_xy    , cmap ='gray'); plt.title(' cmb_xy:  (X/Y)  x: '+str(x_thr)+' y: '+str(y_thr))
-        # plt.subplot(424);plt.imshow(cmb_x_sat, cmap ='gray'); plt.title('cmb_x_sat: (X | Sat) image')
-        # plt.subplot(425);plt.imshow(cmb_x_sat_mag       , cmap ='gray'); plt.title('cmb_x_sat_mag: (X | Sat | Dir/Mag) image')
-        # plt.subplot(426);plt.imshow(cmb_x_sat_mag_rgb   , cmap ='gray'); plt.title('cmb_x_sat_mag_rgb: (X | Sat | Dir/Mag | RGB) image')
-        
-        fig = plt.figure(figsize=(25,28))
-        plt.subplot(421);plt.imshow(rgb_binary            , cmap ='gray'); plt.title('RGB OR Thresholding: '+str(rgb_thr)+' ')
-        plt.subplot(422);plt.imshow(cmb_rgb_lvl           , cmap ='gray'); plt.title('cmb_rgb_lvl:  (RGB | Lvl)  image')
-        plt.subplot(423);plt.imshow(cmb_rgb_lvl_sat       , cmap ='gray'); plt.title('cmb_rgb_lvl_sat:  (RGB | Lvl | Sat)  image')
-        plt.subplot(424);plt.imshow(cmb_rgb_lvl_sat_mag   , cmap ='gray'); plt.title('cmb_rgb_lvl_sat_mag:  (RGB | Lvl | Sat) AND (Mag/Dir)  image')
-        plt.subplot(425);plt.imshow(cmb_rgb_lvl_sat_mag_x , cmap ='gray'); plt.title('cmb_rgb_lvl_sat_mag_x:  (RGB | Lvl | Sat | X) AND (Mag/Dir)  image')
-        plt.subplot(426);plt.imshow(cmb_mag_x             , cmap ='gray'); plt.title('cmb_mag_x:   X:'+str(x_thr)+' (Mag/Dir) '+str(mag_thr))
-        plt.show()
-
-    if ret is not None:
-        return results[ret]    
-    else:
-        return results
-
-"""    
-def RGB_AND_thresh(img, thresh=(0, 255),  display = False):
-    s_channel = np.copy(img)
-    binary_output = np.zeros_like(s_channel)
-    binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 1
-  
-    binary_output = np.max(binary_output, axis = -1)
-
-    if display:
-        
-        filtered_dir = np.copy(s_channel)
-        filtered_dir[(s_channel < thresh[0]) | (s_channel > thresh[1])] = 0
-        # filtered_dir = s_channel * np.dstack((binary_output,binary_output,binary_output))
-   
-        print(' filtered_dir : ', filtered_dir.shape)
-        print(' s_channel    : ', s_channel.shape)
-        print(' binary_output: ', binary_output.shape)
-        display_one(s_channel, title='RGB channels   Min: ' +str(s_channel.min())+ ' Max: '+str(s_channel.max()) )    
-        display_one(filtered_dir , title='filtered_grad - within thresholds: '+thresh_str+' Min: ' +str(filtered_dir.min())+ ' Max: '+str(filtered_dir.max()) )        
-        print(binary_output.shape, binary_output.min(), binary_output.max())
-        display_one(binary_output, title='Thresholded Output - thresholds: '+thresh_str)    
-    
-    return binary_output
-"""
 
     
