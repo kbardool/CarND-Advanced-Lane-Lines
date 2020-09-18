@@ -1,27 +1,16 @@
-﻿
+﻿<head>
+		<link rel="stylesheet" type="text/css" href="css/main.css">
+</head>
+
 # Advanced Lane Finding Project
 ### Project 2 - Udacity Self Driving Car Nanodegree 
 #### Kevin Bardool
-
 <!-- markdownlint-disable MD033 -->
 <!-- <head> -->
 <!-- <link rel="stylesheet"  href="markdown_styles.css" /> -->
 <!-- </head> -->
 <!-- @import "markdown-styles.css" -->
 <!-- (setq markdown-xhtml-header-content) -->
-<style type='text/css'>
-.caption {
-    margin: 10px 50px;
-        color: red;
-        width: 100%;
-        text-align: center;
-        font-weight: bold;
-}
-.redcode {
-    	color:Red;
-        font-weight: bold;
-}    
-</style>
 
 
 
@@ -128,8 +117,8 @@ Once the camera calibration matrix has been calculated, it is possible to undist
 
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
 
-<img title="undistorted test4" alt="alt" src="./writeup_images/img_Undist_test4.png"  style=" margin:10px 50px; width: 100%" />
-<img title="undistorted test6" alt="alt" src="./writeup_images/img_Undist_test6.png"  style=" margin:10px 50px; width: 100%" />
+<img title="undistorted test4" alt="alt" src="./writeup_images/img_undist_test4.png"  style=" margin:10px 50px; width: 100%" />
+<img title="undistorted test6" alt="alt" src="./writeup_images/img_undist_test6.png"  style=" margin:10px 50px; width: 100%" />
 <figcaption class=caption>Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</figcaption>
 <br></br>
 
@@ -146,7 +135,7 @@ A number of thresholding methods were implemented and experimented with in order
 
 The code for these various thresholding methods can be found in <code class=redcode>./common/sobel.py</code>. I experimented with a number of other methods such as erosion, dilation, opening and closing however did not find them to improve the thresholding process significantly. 
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_Thresholding_test4_A.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_A.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of various thresholding operations</figcaption>
 <br>
 
@@ -162,9 +151,9 @@ To create the final thresholded image, we experimented creating a **compound** b
 
 Images below demonstrate various combinations of compound binary thresholding operations.
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_Thresholding_test4_B.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_B.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of compound binary thresholds </figcaption>
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_Thresholding_test5_A.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test5_A.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of image and selected compound threshold image</figcaption>
 <br>
 
@@ -187,14 +176,15 @@ We ended up using the following source and destination points:
 
 The perspective transform was tested` by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_RoI_sline1.png"  style=" margin:10px 40px; width: 100%" />
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_RoI_test4.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_roi_sline1.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_roi_test4.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of perspective transformation</figcaption>
 <br>
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
 <code class=redcode>sliding _window_detection_v1()</code> is the routine responsible for lane-pixel identification. This code is located `common/utils.py`, lines 1155-1325.  This routine first generates a histogram of active pixels in the lower 1/3rd of the thresholded image, detects the peak positions (counting the pixels per x position) and finds the x location corresponding to the peak positions located on the left and right of the x-axis midline.
+
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_A.png"  style=" margin:10px 40px; width: 100%" /> 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_B.png"  style=" margin:1px 40px; width: 100%" />
 
