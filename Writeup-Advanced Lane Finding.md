@@ -1,5 +1,9 @@
-﻿<head>
-		<link rel="stylesheet"   href="./css/main.css">
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Air</title>
+		<link rel="stylesheet"   href="css/main.css">
 </head>
 
 # Advanced Lane Finding Project
