@@ -9,7 +9,7 @@ html {
       -ms-text-size-adjust: 100%; 
 }
 
-body {
+/* body {
   max-width:42em;
   padding:1em;
   margin:auto;
@@ -18,7 +18,7 @@ body {
   font-family:Vollkorn, Georgia, Palatino, 'Palatino Linotype', Times, 'Times New Roman', serif;
   font-size:12px;
   background:#fefefe;
-}
+} */
 
 a { 
   color: #0645ad; 

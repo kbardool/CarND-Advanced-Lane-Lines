@@ -2,10 +2,10 @@
  
 <!-- markdownlint-disable MD033 -->
 <!-- <head> -->
-<!-- <link rel="stylesheet"  href="markdown_styles.css" /> -->
+<link rel="stylesheet"  href="markdown_styles.css">
 <!-- </head> -->
 <!-- @import "css/markdown-styles.css" -->
-<!-- @import "css/main.css" -->
+<!-- @import "/css/main.css" -->
 <!-- (setq markdown-xhtml-header-content) -->
 
 
@@ -62,7 +62,7 @@ The goals / steps of this writeup:
 
  
 ## Camera Calibration
-
+<br>
 **1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.**
 
 Classes `Camera` and `CalibrationImage` were implemented for the camera and calibration images respectively. Code for these classes are located in `./classes/camera.py` and `./classes/image.py`
@@ -81,7 +81,7 @@ This method prepares the  `objectPts` numpy array which contains the (x, y, z) c
 style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
 ### Corner detection failures
-
+<br>
 When running the detection process for all calibration images using parameters `(nx,ny) = (9,6)` we observe that the corner detection fails for `calibration1.jpg`, `calibration4.jpg`, and `calibration5.jpg`.
 
 The openCV documentation states:
@@ -106,20 +106,25 @@ Once the camera calibration matrix has been calculated, it is possible to undist
 <img title="undistorted image02" alt="alt" src="./writeup_images/undistorted2.png"  style=" margin:10px 50px; width: 100%" />
  
 <img title="undistorted image02" alt="alt" src="./writeup_images/undistorted3.png"  style=" margin:10px 50px; width: 100%" />
-<figcaption class=caption>Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image </figcaption>
- 
+<p align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image </p>
+
+<br>
+<br> 
 
 
 ## Lane Detection Pipeline (single images)
+<br>
 
 #### 1. Provide an example of a distortion-corrected image.
 
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-
+<figure>
 <img title="undistorted test4" alt="alt" src="./writeup_images/img_undist_test4.png"  style=" margin:10px 50px; width: 100%" />
 <img title="undistorted test6" alt="alt" src="./writeup_images/img_undist_test6.png"  style=" margin:10px 50px; width: 100%" />
-<figcaption class=caption>Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</figcaption>
-<br></br>
+<figcaption align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</figcaption>
+</figure>
+<br>
+<br>
 
 #### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.  
 
@@ -134,8 +139,10 @@ A number of thresholding methods were implemented and experimented with in order
 
 The code for these various thresholding methods can be found in <code class=redcode>./common/sobel.py</code>. I experimented with a number of other methods such as erosion, dilation, opening and closing however did not find them to improve the thresholding process significantly. 
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_A.png"  style=" margin:10px 40px; width: 100%" />
+<figure>
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_a.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of various thresholding operations</figcaption>
+<figure>
 <br>
 
 To create the final thresholded image, we experimented creating a **compound** binary threshold image by combining various individual threshold operations. Eventually a combination of X Gradient, Gradient magnitude and direction, Saturation, and RGB levels was selected with the following threshold limits:
@@ -147,12 +154,13 @@ To create the final thresholded image, we experimented creating a **compound** b
 |  Gradient Direction |  (40, 65)   (slope in degrees)  |
 |  Saturation      |  (200,255)  |
 |  RGB Levels      |  (210, 255) |
-
+<br>
 Images below demonstrate various combinations of compound binary thresholding operations.
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_B.png"  style=" margin:10px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_b.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of compound binary thresholds </figcaption>
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test5_A.png"  style=" margin:10px 40px; width: 100%" />
+<br>
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test5_a.png"  style=" margin:10px 40px; width: 100%" />
 <figcaption class=caption>Example of image and selected compound threshold image</figcaption>
 <br>
 
