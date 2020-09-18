@@ -31,8 +31,9 @@ The goals / steps of this writeup:
 
  Address the project specifications/requirements as laid out in the [Rubric Points](https://review.udacity.com/#!/rubrics/571/view) :
 * Writeup / Readme 
-* [Camera Calibration : ](#Camera-Calebration) Review of the camera calibration process:  
-* [Image Pipeline : ](#Lane-Detection-Pipeline-(single-images)) Review of the detection pipeline for images 
+* [Camera Calibration : ](#Camera-Calibration) Review of the camera calibration process:  
+* [Image Pipeline : ](Lane-Detection-Pipeline-(single-images)) Review of the detection pipeline for images 
+
 * [Video Pipeline : ](#Lane-Detection-Pipeline-(video))Review of the detection pipeline for videos 
 * [Discussion : ](#Discussion) Reflection on work, challenges encountered, and  possible improvements. 
 ---
@@ -252,18 +253,26 @@ The off-center calculation and message generation is done in  <code class=redcod
 
 The code to plot / overlay the detected lanes back onto the image is implemented in <code class=redcode>displayDetectedRegion_v1()</code> ( `common/utils.py`, lines 657-707). The necessary overlay is constructed and added to the input image using `cv2.addWeighted()` function.  
 
-
-<div>
-<img title="calibration image01" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  height="240"/>
-<img title="calibration image04" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  height="240"/>
-<img title="calibration image05" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  height="240"/>
-<p align="center">Results of lane detection over images test1 - test3</p>
+<br>
+<p align="center">
+<img title="test image 1" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  height="240"/>
+<img title="test image 2" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  height="240"/>
+<br>
+Results of lane detection over images test1 - test3
 <br>
 <br>
-<img title="calibration image01" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" height="240"/>
-<img title="calibration image04" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg" height="240"/>
-<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  height="240"/>
-<p align="center">Results of lane detection over images test4 - test6</p>
+<img title="test image 3" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  height="240"/>
+<img title="test image 4" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" height="240"/>
+<br>
+Results of lane detection over images test5 - test6
+<br><br>
+<img title="test image 5" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg" height="240"/>
+<img title="test image 6" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  height="240"/>
+<br>
+Results of lane detection over images test5 - test6
+<br>
+<br>
+</p>
 </div>
 
 ## Lane Detection Pipeline (video)
@@ -305,20 +314,24 @@ As a frame is categorized, its corresponding thresholding method is applied and 
 A wide variety of video frame color space statistics were investigated in order to select the proper thresholds and the corresponding binary thresholding method. Here is a sample plot from one of these experiments that plots the Hue, Level, Saturation, and Mean RGB of each frame of video clip.
 
 
-<div>
-<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_undist.png"  height="240"/>
-<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_warped.png"  height="240"/>
-<p align="center">Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspective transformation</p>
-</div>
+<p align="center">
+<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_undist.png"  width="500"/>
+<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_warped.png"  width="500"/>
+<br>
+Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspective transformation
+<br>
+<br>
+</p>
+
 
 ### Assessment of detected lane pixels
-`assess_lane_detections()` (lines 412-532 of classes/videopipeline.py) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
+`assess_lane_detections()` (lines 412-532 of `classes/videopipeline.py`) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
 
-### Lane-level assessments:
+#### Lane-level assessments:
 - absolute count of non-zero pixels detected for each lane
 - ratio of detected non-zero pixels to total pixels in lane search region
 
-### Frame-level checks:
+#### Frame-level checks:
 - ratio of non-zero pixels to total pixels in image 
 - ratio of detected non-zero pixels to total non-zero pixels in image 
 - ratio of detected non-zero pixels to total non-zero pixels in search regions 
@@ -326,12 +339,15 @@ A wide variety of video frame color space statistics were investigated in order 
 
 These allow us to determine whether the detected pixel are reliable enough to use the fitted polynomals for lane detection. For example, if the image is over saturated, the ratio of non-zero pixels to total pixels and lane non-zero pixels to lane search pixels will be extremely high, and as a result the fitted polynomials cannot be relied upon.
 
-<div>
-<img title="image analysis plot" alt="alt" src="./writeup_images/pixel_ratio_analysis_2.png"  style="border:3px solid black; width: 100%" />
-<p align="center">Pixel ratio analysis of video frames</p>
-</div>
+<p align="center">
+<img title="image analysis plot" alt="alt" src="./writeup_images/pixel_ratio_analysis_2.png"  width="512" />
+<br>
+Pixel ratio analysis of video frames
+<br><br>
+</p>
 
-### Fitted Polynomial Assessment
+
+### Assessment of Fitted Polynomials
 `assess_fitted_polynomials()` (lines 536-532 of classes/videopipeline.py) takes results of the detected pixels assessment (above) and other information related to the frame being processed, and makes a final determination whether to accept or reject the fitted polynomials. 
 
 Based on the quality of the detected pixels in the image and fitted polynomials, the color of the inter-lane overlay is set to green, yellow, or red. 
