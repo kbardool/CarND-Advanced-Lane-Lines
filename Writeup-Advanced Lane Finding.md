@@ -91,9 +91,9 @@ The openCV documentation states:
 The three failed images are all missing a sufficient white border on two or more sides of the chessboard:
 
 <div>
-<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  style="border:3px solid black; width: 32%" />
-<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  style="border:3px solid black; width: 32%" />
-<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  style="width:32%" />
+<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  style="width:32%" />
+<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  style="width:32%" />
 </div>
 
 
