@@ -254,17 +254,15 @@ The code to plot / overlay the detected lanes back onto the image is implemented
 
 
 <div>
-<img title="calibration image01" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
-<img title="calibration image04" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
-<img title="calibration image05" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
+<img title="calibration image01" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  height="240"/>
+<img title="calibration image04" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  height="240"/>
+<img title="calibration image05" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  height="240"/>
 <p align="center">Results of lane detection over images test1 - test3</p>
 <br>
 <br>
-<img title="calibration image01" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" width="230"/>
-<img title="calibration image04" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg"  style="border:3px solid black; width: 32%" />
-<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  style="border:3px solid black; width: 32%" />
-<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  style="border:3px solid black; width: 32%" />
-<br>
+<img title="calibration image01" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" height="240"/>
+<img title="calibration image04" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg" height="240"/>
+<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  height="240"/>
 <p align="center">Results of lane detection over images test4 - test6</p>
 </div>
 
@@ -308,8 +306,8 @@ A wide variety of video frame color space statistics were investigated in order 
 
 
 <div>
-<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_undist.png"  style="border:3px solid black; width: 100%" />
-<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_warped.png"  style="border:3px solid black; width: 100%" />
+<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_undist.png"  height="240"/>
+<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_warped.png"  height="240"/>
 <p align="center">Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspective transformation</p>
 </div>
 
