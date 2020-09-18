@@ -75,10 +75,10 @@ This method prepares the  `objectPts` numpy array which contains the (x, y, z) c
 
 ### Examples of successful corner detections:
  
-<img title="image02 corner detection" alt="alt" src="./writeup_images/detectcorners2.png" style="vertical-align:middle;margin:10px 100px;width: 30%"  />
+<img title="image02 corner detection" alt="alt" src="./writeup_images/detectcorners2.png" style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
 <img title="image03 corner detection" alt="alt" src="./writeup_images/detectcorners3.png"  
-style="vertical-align:middle;margin:10px 100px;width: 40%"  />
+style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
 ### Corner detection failures
 
@@ -89,11 +89,11 @@ The openCV documentation states:
 
 The three failed images are all missing a sufficient white border on two or more sides of the chessboard:
 
-<div>
-<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  style="width:32%" />
-<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  style="width:32%" />
-<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  style="width:32%" />
-</div>
+<p align="center">
+<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  width="320" />
+<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  width="320" />
+<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  width="320" />
+</p>
 
 
 However, it is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted.
