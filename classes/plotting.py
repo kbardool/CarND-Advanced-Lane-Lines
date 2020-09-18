@@ -24,8 +24,7 @@ class PlotDisplay(Figure):
 
         self.rows  = rows
         self.cols  = columns 
-        self.fig   = plt.figure(figsize=(width, rows * rowHeight))
-
+        self.figure  = plt.figure(figsize=(width, rows * rowHeight))
         self.subplot = 0
 
 
@@ -73,6 +72,7 @@ class PlotDisplay(Figure):
         
         
     def closePlot(self):
+
         return self
         # bkend = plt.get_backend()
         # print(' backend : ', bkend)

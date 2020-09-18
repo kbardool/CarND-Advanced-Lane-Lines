@@ -95,7 +95,7 @@ class VideoFile(object):
 
     def closeVideoFile(self):
         self.videoFile.release()
-        print(' '+self.mode+' video file closed') 
+        print(' '+self.mode+' video file closed :', self.videoFilename) 
         
     close = closeVideoFile
     

@@ -40,17 +40,18 @@ The goals / steps of this project are the following:
 
 ---
 The goals / steps of this writeup: 
-* Review of the camera calibration process
-* Review of the advanced line detection pipeline for static images
-* Review of the advanced line detection pipeline for videos
-* Reflection on work - challenges encountered and  possible improvements. 
-
-
+* Review of the camera calibration process:  [Camera Calibration Process](#Camera-Calebration)
+* Review of the detection pipeline for images: [Image Lane Detection Pipeline](#Lane-Detection-Pipeline-(single-images))
+* Review of the detection pipeline for videos: [Video Lane Detection Pipeline](#Lane-Detection-Pipeline-(video))
+* Reflection on work, challenges encountered, and  possible improvements. [Discussion](#Discussion) 
 ---
+
+
+
 
 [//]: # (Image References)
 
-[image1]: ./examples/undistort_output.png "Undistorted"
+<!-- [image1]: ./examples/undistort_output.png "Undistorted"
 [image2]: ./test_images/test1.jpg "Road Transformed"
 [image3]: ./examples/binary_combo_example.jpg "Binary Example"
 [image4]: ./examples/warped_straight_lines.jpg "Warp Example"
@@ -63,7 +64,7 @@ The goals / steps of this writeup:
 [image04]: ./writeup_images/detectcorners2.png "detectcorner2"
 [image05]: ./writeup_images/detectcorners3.png "detectcorner3"
 [image06]: ./writeup_images/undistorted2.png "undistorted2"
-[image07]: ./writeup_images/undistorted3.png "undistorted3"
+[image07]: ./writeup_images/undistorted3.png "undistorted3" -->
 
 
 
@@ -270,9 +271,96 @@ The code to plot / overlay the detected lanes back onto the image is implemented
 
 ## Lane Detection Pipeline (video)
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+For the video stream lane detection, I started from the code base for image lane detection. A significant number of modifications and enhancements were made to the software. A detailed explanation of all enhancements would be beyond the brevity requirements of this report, so I will only discuss the most important points:
 
-Here's a [link to my video result](./project_video.mp4)
+
+#### New Class Definitions:
+- `VideoPipeline`: Pipeline class for video input. 
+- `Line` class instantiated for left/right lane detection. Manage fitted polynomial attributes and methods during the video frame lanes detection process.
+- `VideoFile` used to manage input/output video files. Instantiated twice per pipeline execution, for input and output files, respectively.
+
+- Many of the functions written for the image lane detection were reimplemented to support the new classes.
+
+- A series of "debug helpers" were written to tracking, verification, and troubleshooting purposes. 
+
+- A series of visualization helpers were written to research the video frame characteristics for dynamic frame thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
+
+#### Dynamic Frame Thresholding
+
+ For binary thresholding of individual video frames, a dynamic thresholding approach was taken. Instead of a static thresholding method, the thresholding method used in each frame is determined based on the mean RGB and  average values of each frame extracted from the RGB and HLS images.
+
+Here are the frame conditions, selection criteria, and the corresponding thresholding method for the project video. It is important to note that the original frame condition process was quite simple and consisted three conditions: `dark`, `low-saturation` and `normal`. As I worked on the more challenging videos encompassing a larger variety of lighting conditions, the selection process was expanded. 
+
+As a frame is categorized, its corresponding thresholding method is applied and used for subsequent pipeline steps.  
+
+|  Frame Condition   |  Mean RGB       | Saturation   | Binary Thresholding Method |
+|:-------------------|:----------------:|:------------:|:-------------------:| 
+|  X-High Saturation |    ---          | Sat >  120   |  magnitude / x gradient |  
+|  High Saturation   |    ---          | Sat >  65    |  magnitude / x gradient |  
+|  Low  Saturation   |    ---          | Sat <  20    |  hue / x gradient |  
+|||||
+|  X-High Mean RGB   |    RGB  > 180   |   ---        |  magnitude / x gradient |  
+|  High / Med        | 100< RGB < 180  | 20< Sat < 65 |  RGB / Level / Saturation | 
+|  Low               | 35 < RGB < 100  | 20< Sat < 65 |  magnitude / xy gradient | 
+|  X-Low             | RGB  < 35       | 20< Sat < 65 |  magnitude / xy gradient |  
+
+
+A wide variety of video frame color space statistics were investigated in order to select the proper thresholds and the corresponding binary thresholding method. Here is a sample plot from one of these experiments that plots the Hue, Level, Saturation, and Mean RGB of each frame of video clip.
+
+
+<div>
+<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_undist.png"  style="border:3px solid black; width: 100%" />
+<img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_warped.png"  style="border:3px solid black; width: 100%" />
+<figcaption class=caption>Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspective transformation</figcaption>
+</div>
+
+### Assessment of detected lane pixels
+`assess_lane_detections()` (lines 412-532 of classes/videopipeline.py) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
+
+#### Lane-level checks:
+- absolute count of non-zero pixels detected for each lane
+- ratio of detected non-zero pixels to total pixels in lane search region
+
+#### Image Level checks:
+- ratio of non-zero pixels to total pixels in image 
+- ratio of detected non-zero pixels to total non-zero pixels in image 
+- ratio of detected non-zero pixels to total non-zero pixels in search regions 
+- number of non-zero pixels detected in lane search region to total number of 
+
+These allow us to determine whether the detected pixel are reliable enough to use the fitted polynomals for lane detection. For example, if the image is over saturated, the ratio of non-zero pixels to total pixels and lane non-zero pixels to lane search pixels will be extremely high, and as a result the fitted polynomials cannot be relied upon.
+
+<div>
+<img title="image analysis plot" alt="alt" src="./writeup_images/pixel_ratio_analysis_2.png"  style="border:3px solid black; width: 100%" />
+<figcaption class=caption>Pixel ratio analysis of video frames</figcaption>
+</div>
+
+### Fitted Polynomial Assessment
+`assess_fitted_polynomials()` (lines 536-532 of classes/videopipeline.py) takes results of the detected pixels assessment (above) and other information related to the frame being processed, and makes a final determination whether to accept or reject the fitted polynomials. 
+
+Based on the quality of the detected pixels in the image and fitted polynomials, the color of the inter-lane overlay is set to green, yellow, or red. 
+
+- Green: frame produced acceptable detection pixels  and both lane polynomials were accepted. 
+- Yellow: detection has low quality ( one or more polynomials were rejected or the frame detection has poor quality) 
+- Red : We have encountered low quality lane detection for more than 25 frames. 
+- no-display: no reliable lane detection could be ascertained. 
+
+Examples of these overlays can be seen in the hard challenge video output.
+
+### Dynamic adjustment of perspective transformation points
+Another part that was added during the work on the harder challenge video was the dynamic change of perspective transformation points. As we encounter curves in the road, the points selected for the perspective transformation drift away from the lanes we aim to detect, and we end up detecting other artifacts. To address this I implemented dynamic realignment of the perspective transformation points. This code for this is in `adjust_RoI_window` (lines 800-900 in ./classes/videopipeline.py).  
+
+After each reliable lane detection we taken the top and bottom points on each lane and calculate the difference between them and the perspective transformation points. If the horizontal difference (along x axis) is larger than a preset threshold (`OFF_CENTER_ROI_THRESHOLD`) we adjust the source transformation points. This will be applied on the next and subsequent frames. Since we adjust the perspective transformation, we also set a flag to apply the sliding window detection algorithm on the next video frame. 
+
+ <br>
+ <br>
+ <br>
+
+ ### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+
+- [Project Video](./output_video/project_video_output_20200901_2223.mp4)
+
+
+- [Challenge Video](./output_video/challenge_video_output_20200917_1516.mp4)
 
 ---
 

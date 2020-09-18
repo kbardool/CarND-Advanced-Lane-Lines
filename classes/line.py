@@ -260,13 +260,12 @@ class Line():
 
             if x_spread < self.MIN_X_SPREAD and y_spread < self.MIN_Y_SPREAD:
                 self.poly_deg = self.MIN_POLY_DEGREE
-                print('  *  {} - x_spread: {}   y_spread: {}    poly_degree: {}  '.format(
-                  self.name, x_spread, y_spread, self.poly_deg ))
             else:
                 self.poly_deg = self.POLY_DEGREE
+            if debug:
                 print('  *  {} - x_spread: {}   y_spread: {}    poly_degree: {}  '.format(
-                  self.name, x_spread, y_spread, self.poly_deg ))
-            
+                                            self.name, x_spread, y_spread, self.poly_deg ))
+
             try:
                 self.proposed_fit = np.polyfit(self.ally , self.allx , self.poly_deg, full=False)
             except Exception as e:

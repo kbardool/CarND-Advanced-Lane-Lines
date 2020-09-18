@@ -17,7 +17,7 @@ from datetime                              import datetime
 import numpy as np
 import cv2, glob, pickle, sys, os , pprint, winsound 
 from datetime import datetime, time
-from classes.pipeline import ALFPipeline
+from classes.videopipeline import VideoPipeline
 from classes.videofile import VideoFile
 from classes.camera import Camera
 from common.utils import display_one, display_two
@@ -72,17 +72,21 @@ def main( input_file , from_frame = 0, to_frame = 999999,
     print(cameraConfig.cameraMatrix)
 
 
-    Pipeline = ALFPipeline(cameraConfig, **kwargs)
+    Pipeline = VideoPipeline(cameraConfig, **kwargs)
 
     Pipeline.inVideo  = VideoFile( input_file, mode = 'input' , fromFrame = from_frame, toFrame = to_frame)
     Pipeline.outVideo = VideoFile( input_file, mode = 'output', outputPath = output_path ,suffix = suffix, like = Pipeline.inVideo)
 
-    if overrides == 'challenge':
+    if overrides == 'project':
+        project_overrides(Pipeline)
+    elif overrides == 'challenge':
         challenge_overrides(Pipeline)
     elif overrides == 'harder':
         harder_challenge_overrides(Pipeline)
 
-    print('--- ALF Video ended at:',datetime.now().strftime("%m-%d-%Y @ %H:%M:%S"))
+    Pipeline.thresholds_to_str()
+
+    print('--- Video Pipeline setup complete:',datetime.now().strftime("%m-%d-%Y @ %H:%M:%S"))
     return Pipeline
 
 
@@ -90,7 +94,14 @@ def project_overrides(Pipeline):
     
     print('--- project_overrides --------------------------------------')
 
-    Pipeline.thresholds_to_str()
+    Pipeline.HIGH_RGB_THRESHOLD         =  180    ## default is  180
+    Pipeline.MED_RGB_THRESHOLD          =  180    ## default is  180
+    Pipeline.LOW_RGB_THRESHOLD          =  100    ## default is  100
+    Pipeline.VLOW_RGB_THRESHOLD         =   35    ## default is   35         
+
+    Pipeline.XHIGH_SAT_THRESHOLD        =  120    ## default is  120
+    Pipeline.HIGH_SAT_THRESHOLD         =   65    ## default is   65
+    Pipeline.LOW_SAT_THRESHOLD          =   30    ## default is   20
 
     print('--- all done' )
     return
@@ -110,14 +121,14 @@ def challenge_overrides(Pipeline):
     Pipeline.OFF_CENTER_ROI_THRESHOLD   =    50   ## default is  6-
 
        
-    # Pipeline.HIGH_RGB_THRESHOLD         =   205   ## default is  180
-    # Pipeline.MED_RGB_THRESHOLD          =   170   ## default is  180
-    # Pipeline.LOW_RGB_THRESHOLD          =   120   ## default is  100
-    # Pipeline.VLOW_RGB_THRESHOLD         =    90   ## default is   35         
+    Pipeline.HIGH_RGB_THRESHOLD         =   205   ## default is  180
+    Pipeline.MED_RGB_THRESHOLD          =   170   ## default is  180
+    Pipeline.LOW_RGB_THRESHOLD          =   120   ## default is  100
+    Pipeline.VLOW_RGB_THRESHOLD         =    90   ## default is   35         
                                               
-    # Pipeline.XHIGH_SAT_THRESHOLD        =   120   ## default is  120
-    # Pipeline.HIGH_SAT_THRESHOLD         =    65   ## default is   65
-    # Pipeline.LOW_SAT_THRESHOLD          =    30   ## default is   20
+    Pipeline.XHIGH_SAT_THRESHOLD        =   120   ## default is  120
+    Pipeline.HIGH_SAT_THRESHOLD         =    65   ## default is   65
+    Pipeline.LOW_SAT_THRESHOLD          =    30   ## default is   20
 
     Pipeline.thresholdMethods[1]['xhigh']  =  'cmb_rgb_lvl_sat'       ## HISAT_THRESHOLDING     205 < avg
     Pipeline.thresholdMethods[1]['high']   =  'cmb_rgb_lvl_sat'       ## HIGH_THRESHOLDING      170 < avg < 205
@@ -211,19 +222,31 @@ def challenge_overrides(Pipeline):
     # }        
     
     ## modified June 25 2020
+    # Pipeline.ImageThresholds[1]['med']  = {
+    #     'ksize'      : 7         ,
+    #     'x_thr'      : ( 15, 30),
+    #     'y_thr'      : None,
+    #     'mag_thr'    : ( 10,  50),
+    #     'dir_thr'    : ( 45,  65),
+    #     'sat_thr'    : ( 90, 175),
+    #     'lvl_thr'    : (200, 255),
+    #     'rgb_thr'    : (200, 255),
+    #     'hue_thr'    : (  5,  35)
+    # }        
+
+    ## modified September 17 2020
     Pipeline.ImageThresholds[1]['med']  = {
-        'ksize'      : 7         ,
+        'ksize'      : 7,
         'x_thr'      : ( 15, 30),
         'y_thr'      : None,
-        'mag_thr'    : ( 10,  50),
-        'dir_thr'    : ( 45,  65),
-        'sat_thr'    : ( 90, 175),
-        'lvl_thr'    : (200, 255),
-        'rgb_thr'    : (200, 255),
-        'hue_thr'    : (  5,  35)
-    }        
-
-
+        'mag_thr'    : ( 10, 50),
+        'dir_thr'    : ( 45, 65),
+        'rgb_thr'    : (170,255),
+        'hue_thr'    : (  5, 35),
+        'lvl_thr'    : (170,255),
+        'sat_thr'    : ( 90,175),
+    }
+    
     Pipeline.ImageThresholds[1]['low']  = {
         'ksize'      : 7         ,
         'x_thr'      : (65,255)  ,
