@@ -1,22 +1,17 @@
-﻿<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Air</title>
-		<link rel="stylesheet"   href="css/main.css">
-</head>
-
-# Advanced Lane Finding Project
-### Project 2 - Udacity Self Driving Car Nanodegree 
-#### Kevin Bardool
+ 
+ 
 <!-- markdownlint-disable MD033 -->
 <!-- <head> -->
 <!-- <link rel="stylesheet"  href="markdown_styles.css" /> -->
 <!-- </head> -->
-<!-- @import "markdown-styles.css" -->
+<!-- @import "css/markdown-styles.css" -->
+<!-- @import "css/main.css" -->
 <!-- (setq markdown-xhtml-header-content) -->
 
 
+# Advanced Lane Finding Project
+### Project 2 - Udacity Self Driving Car Nanodegree 
+#### Kevin Bardool
 
 ---
 
