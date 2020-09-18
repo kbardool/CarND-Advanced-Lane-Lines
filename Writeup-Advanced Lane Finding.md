@@ -76,10 +76,10 @@ This method prepares the  `objectPts` numpy array which contains the (x, y, z) c
 
 ### Examples of successful corner detections:
  
-<img title="image02 corner detection" alt="alt" src="./writeup_images/detectcorners2.png" style="vertical-align:middle;margin:10px 100px;width: 70%"  />
+<img title="image02 corner detection" alt="alt" src="./writeup_images/detectcorners2.png" style="vertical-align:middle;margin:10px 100px;width: 30%"  />
 
 <img title="image03 corner detection" alt="alt" src="./writeup_images/detectcorners3.png"  
-style="vertical-align:middle;margin:10px 100px;width: 70%"  />
+style="vertical-align:middle;margin:10px 100px;width: 40%"  />
 
 ### Corner detection failures
 
