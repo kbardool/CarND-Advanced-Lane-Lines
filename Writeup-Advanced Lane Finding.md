@@ -371,34 +371,26 @@ After each reliable lane detection we taken the top and bottom points on each la
 
 - [Project Video](https://youtu.be/zuZbICpFCIo)
 
-<center>
 
-[![Project Video](writeup_images/thumbnail_project_video.png)](https://youtu.be/zuZbICpFCIo)
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=zuZbICpFCIo"><img src="writeup_images/thumbnail_project_video.png" alt="Project Video" width="450"></a>
+</p>
 
-</center>
 
 - [Challenge Video](https://youtu.be/RgM5bsvKJNM)
 
-<center>
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=RgM5bsvKJNM"><img src="writeup_images/thumbnail_challenge_video.png" alt="Challenge Video" width="450"></a>
+</p>
 
-[![Challenge Video](writeup_images/thumbnail_challenge_video.png)](https://youtu.be/RgM5bsvKJNM)
-
-</center>
 
 - [Hardest Challenge video](https://youtu.be/RgM5bsvKJNM)
 
-[![Challenge Video](writeup_images/thumbnail_challenge_video.png)](https://youtu.be/RgM5bsvKJNM)
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=RgM5bsvKJNM"><img src="writeup_images/thumbnail_challenge_video.png" alt="harder Challenge Video" width="450"></a>
+</p>
 
 
-- Embedded Test
-
-<iframe width="560" height="315"
-src="https://www.youtube.com/embed/RgM5bsvKJNM" 
-frameborder="0" 
-allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
-allowfullscreen>
-</iframe>
----
 
 ## Discussion
 
