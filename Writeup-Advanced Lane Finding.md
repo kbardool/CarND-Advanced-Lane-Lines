@@ -32,7 +32,7 @@ The goals / steps of this writeup:
  Address the project specifications/requirements as laid out in the [Rubric Points](https://review.udacity.com/#!/rubrics/571/view) :
 * Writeup / Readme 
 * [Camera Calibration : ](#Camera-Calibration) Review of the camera calibration process:  
-* [Image Pipeline : ](lane-detection-pipeline-(single-images)) Review of the detection pipeline for images 
+* [Image Pipeline : ](lane-detection-pipeline-single-images) Review of the detection pipeline for images 
 
 * [Video Pipeline : ](#lane-detection-pipeline-(video))Review of the detection pipeline for videos 
 * [Discussion : ](#Discussion) Reflection on work, challenges encountered, and  possible improvements. 
