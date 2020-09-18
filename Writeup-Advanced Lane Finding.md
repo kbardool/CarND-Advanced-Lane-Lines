@@ -370,11 +370,36 @@ After each reliable lane detection we taken the top and bottom points on each la
 
  ### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-- [Project Video](./output_video/project_video_output_20200901_2223.mp4)
+
+- [Project Video](https://youtu.be/zuZbICpFCIo)
+
+<center>
+
+[![Project Video](writeup_images/thumbnail_project_video.png)](https://youtu.be/zuZbICpFCIo)
+
+</center>
+
+- [Challenge Video](https://youtu.be/RgM5bsvKJNM)
+
+<center>
+
+[![Challenge Video](writeup_images/thumbnail_challenge_video.png)](https://youtu.be/RgM5bsvKJNM)
+
+</center>
+
+- [Hardest Challenge video](https://youtu.be/RgM5bsvKJNM)
+
+[![Challenge Video](writeup_images/thumbnail_challenge_video.png)](https://youtu.be/RgM5bsvKJNM)
 
 
-- [Challenge Video](./output_video/challenge_video_output_20200917_1516.mp4)
+- Embedded Test
 
+<iframe width="560" height="315"
+src="https://www.youtube.com/embed/RgM5bsvKJNM" 
+frameborder="0" 
+allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+allowfullscreen>
+</iframe>
 ---
 
 ## Discussion
