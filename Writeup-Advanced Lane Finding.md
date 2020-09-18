@@ -28,14 +28,14 @@ The goals / steps of this project are the following:
 
 ---
 The goals / steps of this writeup: 
-* Review of the camera calibration process:  [Camera Calibration Process](#Camera-Calebration)
-* Review of the detection pipeline for images: [Image Lane Detection Pipeline](#Lane-Detection-Pipeline-(single-images))
-* Review of the detection pipeline for videos: [Video Lane Detection Pipeline](#Lane-Detection-Pipeline-(video))
-* Reflection on work, challenges encountered, and  possible improvements. [Discussion](#Discussion) 
+
+ Address the project specifications/requirements as laid out in the [Rubric Points](https://review.udacity.com/#!/rubrics/571/view) :
+* Writeup / Readme 
+* [Camera Calibration : ](#Camera-Calebration) Review of the camera calibration process:  
+* [Image Pipeline : ](#Lane-Detection-Pipeline-(single-images)) Review of the detection pipeline for images 
+* [Video Pipeline : ](#Lane-Detection-Pipeline-(video))Review of the detection pipeline for videos 
+* [Discussion : ](#Discussion) Reflection on work, challenges encountered, and  possible improvements. 
 ---
-
-
-
 
 [//]: # (Image References)
 
@@ -56,14 +56,11 @@ The goals / steps of this writeup:
 
 
 
-<!-- ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
-
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.   -->
-
  
 ## Camera Calibration
 <br>
-**1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.**
+
+**1. Briefly state how you computed the camera matrix and distortion coefficients.**
 
 Classes `Camera` and `CalibrationImage` were implemented for the camera and calibration images respectively. Code for these classes are located in `./classes/camera.py` and `./classes/image.py`
  
@@ -96,8 +93,7 @@ The three failed images are all missing a sufficient white border on two or more
 </p>
 
 
-However, it is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted.
-
+It is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted. For the purposes of this project however I have only included images that 
 
 Image objects that successfully pass the corner detection process are saved in a list that is passed to the `camera.calibrate()` method. This method passes real world points `image.objPoints` and the equivalent image coordinates `image.imgPoints`  to compute the camera's calibration matrix and distortion coefficients as well as the rotation/translation vectors for each image).
  
@@ -111,22 +107,21 @@ Once the camera calibration matrix has been calculated, it is possible to undist
 <br>
 <br> 
 
-
 ## Lane Detection Pipeline (single images)
 <br>
 
-#### 1. Provide an example of a distortion-corrected image.
+### 1. Provide an example of a distortion-corrected image.
 
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
 <figure>
 <img title="undistorted test4" alt="alt" src="./writeup_images/img_undist_test4.png"  style=" margin:10px 50px; width: 100%" />
 <img title="undistorted test6" alt="alt" src="./writeup_images/img_undist_test6.png"  style=" margin:10px 50px; width: 100%" />
-<figcaption align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</figcaption>
+<p align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</p>
 </figure>
 <br>
 <br>
 
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.  
+### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.  
 
 A number of thresholding methods were implemented and experimented with in order to select a robust thresholded binary image that will work for most lighting combinations. 
 
@@ -141,7 +136,7 @@ The code for these various thresholding methods can be found in <code class=redc
 
 <figure>
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_a.png"  style=" margin:10px 40px; width: 100%" />
-<figcaption class=caption>Example of various thresholding operations</figcaption>
+<p align="center">Example of various thresholding operations</p>
 <figure>
 <br>
 
@@ -161,11 +156,11 @@ Images below demonstrate various combinations of compound binary thresholding op
 <figcaption class=caption>Example of compound binary thresholds </figcaption>
 <br>
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test5_a.png"  style=" margin:10px 40px; width: 100%" />
-<figcaption class=caption>Example of image and selected compound threshold image</figcaption>
+<p align="center">Example of image and selected compound threshold image</p>
 <br>
 
 
-#### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
+### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
 Perspective transformation is done in <code class=redcode>perspectiveTransform()</code> located in `./common/sobel.py` lines 18 to 28.  `perspectiveTransform()` takes receives source (`source`) and destination (`dest`) points, and the image to transform. It first calls `cv2.getPerspectiveTransform()` to obtain the transformation matrix `M`. Next, it calls `cv2.warpPerspective()` to apply the perspective transformation on the input image using the calculated transformation matrix.   
 
@@ -185,10 +180,10 @@ The perspective transform was tested` by drawing the `src` and `dst` points onto
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_roi_sline1.png"  style=" margin:10px 40px; width: 100%" />
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_roi_test4.png"  style=" margin:10px 40px; width: 100%" />
-<figcaption class=caption>Example of perspective transformation</figcaption>
+<p align="center">Example of perspective transformation</p>
 <br>
 
-#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
 <code class=redcode>sliding _window_detection_v1()</code> is the routine responsible for lane-pixel identification. This code is located `common/utils.py`, lines 1155-1325.  This routine first generates a histogram of active pixels in the lower 1/3rd of the thresholded image, detects the peak positions (counting the pixels per x position) and finds the x location corresponding to the peak positions located on the left and right of the x-axis midline.
 
@@ -217,17 +212,17 @@ If the number of detected pixels within a window region is less than the `minpix
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_d1.png"  
 style=" margin:1px 40px; width: 100%" />
-<figcaption class=caption>Example of lane pixel detection using the sliding window algorithm</figcaption>
+<p align="center">Example of lane pixel detection using the sliding window algorithm</p>
 <br>
  
 The X and Y coordinates of the selected pixels (red and blue pixels in image above) are the passed on to the line fitting process, <code class=redcode>fit_polynomial_v1</code> ( `common/utils.py`, lines 347-361). This routine calls `np.polyfit` to fit a second degree polynomial over the detected pixels. 
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_c.png"  
 style=" margin:1px 40px; width: 100%" />
-<figcaption class=caption>Example of lane pixel detection and fitted polynomials</figcaption>
+<p align="center">Example of lane pixel detection and fitted polynomials</p>
 <br>
 
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
 For lane detection on images, radius of curvature calculation is performed in  <code class=redcode>calculate_radius()</code> ( `common/utils.py`, lines 720-728):
 
@@ -248,7 +243,7 @@ The curvature message displayed on the image is build in  <code class=redcode>cu
 The off-center calculation and message generation is done in  <code class=redcode>offCenterMsg_V1()</code> ( `common/utils.py`, lines 763-797)
 
 
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
 The code to plot / overlay the detected lanes back onto the image is implemented in <code class=redcode>displayDetectedRegion_v1()</code> ( `common/utils.py`, lines 657-707). The necessary overlay is constructed and added to the input image using `cv2.addWeighted()` function.  
 
@@ -308,7 +303,7 @@ A wide variety of video frame color space statistics were investigated in order 
 <div>
 <img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_undist.png"  style="border:3px solid black; width: 100%" />
 <img title="image analysis plot" alt="alt" src="./writeup_images/thresholding_image_analysis_1_warped.png"  style="border:3px solid black; width: 100%" />
-<figcaption class=caption>Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspective transformation</figcaption>
+<p align="center">Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspective transformation</p>
 </div>
 
 ### Assessment of detected lane pixels
@@ -328,7 +323,7 @@ These allow us to determine whether the detected pixel are reliable enough to us
 
 <div>
 <img title="image analysis plot" alt="alt" src="./writeup_images/pixel_ratio_analysis_2.png"  style="border:3px solid black; width: 100%" />
-<figcaption class=caption>Pixel ratio analysis of video frames</figcaption>
+<p align="center">Pixel ratio analysis of video frames</p>
 </div>
 
 ### Fitted Polynomial Assessment
