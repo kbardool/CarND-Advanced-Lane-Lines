@@ -185,8 +185,8 @@ The perspective transform was tested` by drawing the `src` and `dst` points onto
 
 <code class=redcode>sliding _window_detection_v1()</code> is the routine responsible for lane-pixel identification. This code is located `common/utils.py`, lines 1155-1325.  This routine first generates a histogram of active pixels in the lower 1/3rd of the thresholded image, detects the peak positions (counting the pixels per x position) and finds the x location corresponding to the peak positions located on the left and right of the x-axis midline.
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_A.png"  style=" margin:10px 40px; width: 100%" /> 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_B.png"  style=" margin:1px 40px; width: 100%" />
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_a.png"  style=" margin:10px 40px; width: 100%" /> 
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_b.png"  style=" margin:1px 40px; width: 100%" />
 
 The \(X_{left}\) and \(X_{right}\) positions are used as starting points in the sliding window algorithm we use to search for left and right lane pixels. The first windows are centered at \(X_{left}\) and \(X_{right}\), respectively. For each window, the non-zero pixels located within the window region are selected and counted.
 
@@ -208,14 +208,14 @@ If the number of detected pixels within a window region is less than the `minpix
  An example of the sliding window process and detected lane pixels on the binary thresholded image is displayed below:
 
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_D1.png"  
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_d1.png"  
 style=" margin:1px 40px; width: 100%" />
 <figcaption class=caption>Example of lane pixel detection using the sliding window algorithm</figcaption>
 <br>
  
 The X and Y coordinates of the selected pixels (red and blue pixels in image above) are the passed on to the line fitting process, <code class=redcode>fit_polynomial_v1</code> ( `common/utils.py`, lines 347-361). This routine calls `np.polyfit` to fit a second degree polynomial over the detected pixels. 
 
-<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_C.png"  
+<img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_c.png"  
 style=" margin:1px 40px; width: 100%" />
 <figcaption class=caption>Example of lane pixel detection and fitted polynomials</figcaption>
 <br>
