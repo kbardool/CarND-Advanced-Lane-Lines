@@ -112,11 +112,11 @@ Once the camera calibration matrix has been calculated, it is possible to undist
 
 ### 1. Provide an example of a distortion-corrected image.
 
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
+
 <figure>
 <img title="undistorted test4" alt="alt" src="./writeup_images/img_undist_test4.png"  style=" margin:10px 50px; width: 100%" />
 <img title="undistorted test6" alt="alt" src="./writeup_images/img_undist_test6.png"  style=" margin:10px 50px; width: 100%" />
-<p align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image</p>
+<p align="center">Example of distortion-correction. &nbsp &nbsp Left: Original Image &nbsp &nbsp  Right: Undistorted Image</p>
 </figure>
 <br>
 <br>
@@ -149,14 +149,16 @@ To create the final thresholded image, we experimented creating a **compound** b
 |  Gradient Direction |  (40, 65)   (slope in degrees)  |
 |  Saturation      |  (200,255)  |
 |  RGB Levels      |  (210, 255) |
+
 <br>
 Images below demonstrate various combinations of compound binary thresholding operations.
+<br>
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test4_b.png"  style=" margin:10px 40px; width: 100%" />
-<figcaption class=caption>Example of compound binary thresholds </figcaption>
+<p align="center">Example of compound binary thresholds </p>
 <br>
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test5_a.png"  style=" margin:10px 40px; width: 100%" />
-<p align="center">Example of image and selected compound threshold image</p>
+<p align="center">Binary thresholding using compound thresholds on RGB, saturation and gradient magnitude</p>
 <br>
 
 
@@ -189,6 +191,9 @@ The perspective transform was tested` by drawing the `src` and `dst` points onto
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_a.png"  style=" margin:10px 40px; width: 100%" /> 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_b.png"  style=" margin:1px 40px; width: 100%" />
+<p align="center">Detecting activated pixels using histogram on the lower portion of the image.
+<br>
+<br>
 
 The \(X_{left}\) and \(X_{right}\) positions are used as starting points in the sliding window algorithm we use to search for left and right lane pixels. The first windows are centered at \(X_{left}\) and \(X_{right}\), respectively. For each window, the non-zero pixels located within the window region are selected and counted.
 
@@ -252,13 +257,15 @@ The code to plot / overlay the detected lanes back onto the image is implemented
 <img title="calibration image01" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
 <img title="calibration image04" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
 <img title="calibration image05" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
-<figcaption class=caption>Results of lane detection over images test1 - test3</figcaption>
+<p align="center">Results of lane detection over images test1 - test3</p>
 <br>
-<img title="calibration image01" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
-<img title="calibration image04" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
-<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg "  style="border:3px solid black; width: 32%" />
 <br>
-<figcaption class=caption>Results of lane detection over images test4 - test6</figcaption>
+<img title="calibration image01" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" width="230"/>
+<img title="calibration image04" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg"  style="border:3px solid black; width: 32%" />
+<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  style="border:3px solid black; width: 32%" />
+<img title="calibration image05" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  style="border:3px solid black; width: 32%" />
+<br>
+<p align="center">Results of lane detection over images test4 - test6</p>
 </div>
 
 ## Lane Detection Pipeline (video)
@@ -266,7 +273,7 @@ The code to plot / overlay the detected lanes back onto the image is implemented
 For the video stream lane detection, I started from the code base for image lane detection. A significant number of modifications and enhancements were made to the software. A detailed explanation of all enhancements would be beyond the brevity requirements of this report, so I will only discuss the most important points:
 
 
-#### New Class Definitions:
+### New Class Definitions:
 - `VideoPipeline`: Pipeline class for video input. 
 - `Line` class instantiated for left/right lane detection. Manage fitted polynomial attributes and methods during the video frame lanes detection process.
 - `VideoFile` used to manage input/output video files. Instantiated twice per pipeline execution, for input and output files, respectively.
@@ -277,7 +284,7 @@ For the video stream lane detection, I started from the code base for image lane
 
 - A series of visualization helpers were written to research the video frame characteristics for dynamic frame thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
 
-#### Dynamic Frame Thresholding
+### Dynamic Frame Thresholding
 
  For binary thresholding of individual video frames, a dynamic thresholding approach was taken. Instead of a static thresholding method, the thresholding method used in each frame is determined based on the mean RGB and  average values of each frame extracted from the RGB and HLS images.
 
@@ -309,11 +316,11 @@ A wide variety of video frame color space statistics were investigated in order 
 ### Assessment of detected lane pixels
 `assess_lane_detections()` (lines 412-532 of classes/videopipeline.py) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
 
-#### Lane-level checks:
+### Lane-level assessments:
 - absolute count of non-zero pixels detected for each lane
 - ratio of detected non-zero pixels to total pixels in lane search region
 
-#### Image Level checks:
+### Frame-level checks:
 - ratio of non-zero pixels to total pixels in image 
 - ratio of detected non-zero pixels to total non-zero pixels in image 
 - ratio of detected non-zero pixels to total non-zero pixels in search regions 
@@ -356,8 +363,8 @@ After each reliable lane detection we taken the top and bottom points on each la
 
 ---
 
-### Discussion
+## Discussion
 
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
 Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
