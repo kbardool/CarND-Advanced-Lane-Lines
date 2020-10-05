@@ -402,7 +402,21 @@ def harder_challenge_overrides(Pipeline):
         'lvl_thr'    : (252,255) ,  ## (205,255),
         'rgb_thr'    : None ,   ## (205,255),
         'hue_thr'    : ( 25, 65)
-    }        
+    }      
+
+
+    # Pipeline.ImageThresholds[1]['med']  = {
+#     'ksize'      : 7         ,
+#     'x_thr'      : (45,255)  ,
+#     'y_thr'      : None  ,
+#     'mag_thr'    : (45,255)  ,
+#     'dir_thr'    : (40,65)   ,
+#     'sat_thr'    : None ,
+#     'lvl_thr'    : (250,255) ,  ## (205,255),
+#     'rgb_thr'    : None ,   ## (205,255),
+#     'hue_thr'    : ( 20, 65)
+# }        
+  
     Pipeline.ImageThresholds[1]['med']  = {
         'ksize'      : 7         ,
         'x_thr'      : ( 60,255)  ,
@@ -414,6 +428,7 @@ def harder_challenge_overrides(Pipeline):
         'rgb_thr'    : None ,   ## (205,255),
         'hue_thr'    : ( 20, 65)
     }        
+
     Pipeline.ImageThresholds[1]['low']  = {
         'ksize'      : 7         ,
         'x_thr'      : (65,255)  ,
