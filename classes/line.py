@@ -153,7 +153,7 @@ class Line():
         else:
             self.allx_hist.append((x_values.min(), x_values.max()))
         
-        if len(x_values) == 0:
+        if len(y_values) == 0:
             self.ally_hist.append(( 0, 0))
         else:
             self.ally_hist.append((y_values.min(), y_values.max()))

@@ -389,9 +389,27 @@ After each reliable lane detection we taken the top and bottom points on each la
 
 ## Discussion 
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+I have discussed a number of approaches take to address more challenging conditions in the previous section. Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
 
 In this section we touch on various challenges faced during the implementation of this project, and how each was addressed.
+
+* #### Thresholding of the warped image
+Generally in the detection process we first apply binary thresholding and warp (apply perspective transformation ) afterwards. 
+
+I also experimented with the reverse order, that is, first warping the video frame, and applying binary thresholding to the warped image. In the case of the challenge videos, this actually provided very good results when the normal process encountered difficulties in lane detection due to various artifacts present in the image.
+
+The detection algorithm allows selection of this processing method through the `process_mode` parameter. When `process_mode = 1` the normal process is followed: Each video frame is thresholded, and perspective transformation is applied on the resulting binary-thresholded image.
+
+When `process_mode = 2' perspective transformation is applied to the input frame first. Binary thresholding is applied afterwards.
+
+
+<p align="center">
+<img title="process mode differences" alt="alt" src="./writeup_images/challenge_video_results_frame_137_cropped.png"  width="768" />
+<br>
+Binary Thresholding results using different processing orders. Left Column: Perspective Transformation applied before binary thresholding.  Right Column: Perspective Transformation applied before binary thresholding.
+<br><br>
+</p>
+
 
 * #### Lane detection under adverse conditions 
 One of the main challenges in video lane detection was adapting our algorithm for roubstness towards varying road surface conditions, driving conditions, and road/scene lighting conditions. 
@@ -404,12 +422,13 @@ Another issue was correctly recognizing lane makers when the surface has other c
 
 * #### Lane continuation
 
-Another challenge was the issue of continuing the lane display if detection is unsuccessful for one or more video frames. In these situations the algorithm must be able to display lane detections as long as it possibly can. 
+Another challenge is issue of continuing the lane display if detection is unsuccessful for one or more video frames. In these situations the algorithm must be able to display lane detections as long as it possibly can. 
 
 To this goal we maintain a history of detected lane information (fitted polynomials, x/y coordinates, etc...). If the detection algorithm is unable to predict one or both lanes with a minimum level of confidence, it will revert to the kept history to provide an estimated lane detection. If the algorithm is unable to confidently detect lanes for a number of frames, the color in the inter-lane region is changed from green to yellow and eventually red to indicate the reduced quality of lane detections. 
 
 
-* #### Challenging scenarios when lane detection may fail
+* #### Challenging scenarios when lane detection may fail.  What could be done to make it more robust?
 
+Under extremely over- or under-saturated conditions as some intervals in the harder challenging video, line detection fails due to the absence of any discernable lane in the image. Additionally in adverse weather conditions where the road surface is covered with ice or snow, or blizzard conditions where visibility is severely reduced, our algorithm will fail to detect lane markers.
 
-#### Where will your pipeline likely fail?  What could be done to make it more robust?
+To improve robustness more sophisticated lane continuation approaches should be considered, where in addition to the detection history other factors such as close-by vehicles, sign postings and traffic lights, and road surface vs. non-road surface segmentation are take into account. A learning algorithm could be trained to determine optimal threshold parameters based on the image color level, hue and saturation characteristics. 

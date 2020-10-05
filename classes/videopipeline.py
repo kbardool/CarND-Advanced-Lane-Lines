@@ -201,31 +201,42 @@ class VideoPipeline(object):
 
 
     def process_one_frame(self, **kwargs):
-        print(kwargs)
-        debug            = kwargs.get('debug'  , True)
-        debug2           = kwargs.get('debug2' , True)
-        debug3           = kwargs.get('debug3' , False)
-        # display          = kwargs.get('display', True)
-        read_next        = kwargs.get('read_next', True)
-        size             = kwargs.get('size', (15,7))
-        show             = kwargs.get('show', True)
+        
+        self.debug  = kwargs.get('debug'  , True)
+        self.debug2 = kwargs.get('debug2' , True)
+        self.debug3 = kwargs.get('debug3' , False)
+        read_next   = kwargs.get('read_next', True)
+        size        = kwargs.get('size', (15,7))
+        show        = kwargs.get('show', True)
+        # display   = kwargs.get('display', True)
         self.displayResults     = kwargs.get('displayResults'    , self.displayResults    )
         self.displayFittingInfo = kwargs.get('displayFittingInfo', self.displayFittingInfo)
         self.displayRealignment = kwargs.get('displayRealignment', self.displayRealignment)
-        print(' displayRealignement:', self.displayRealignment, '  displayResults: ', self.displayResults, ' displayFittingInfo: ', self.displayFittingInfo)
+
+        # print(kwargs)
+        # print(f' displayFittingInfo: {self.displayFittingInfo}    displayRealignment:{self.displayRealignment}     displayResults:{self.displayResults}')
+        
         if read_next:
             rc1= self.inVideo.getNextFrame()  
         else:
             rc1 = True
             
         if rc1:
-            outputImage, disp = self(displayResults = True, debug = True, debug2 = False)
+            outputImage, disp = self(displayResults = self.displayResults,
+                                     displayFittingInfo = self.displayFittingInfo, 
+                                     displayRealignment = self.displayRealignment, 
+                                     debug = self.debug, debug2 = self.debug2, debug3 = self.debug3)
             self.outVideo.saveFrameToVideo(outputImage, debug = False)        
-            display_one(outputImage, size=(15,7), title = self.frameTitle)
+            
+            # _ = display_one(outputImage, size=size, title = self.frameTitle)
+            
             winsound.MessageBeep(type=winsound.MB_ICONHAND)
-        return outputImage, disp
+
+        return (outputImage, disp)
+
 
     def process_frame_range(self, toFrame, **kwargs):
+        
         self.debug       = kwargs.get('debug'  , False)
         self.debug2      = kwargs.get('debug2' , False)
         self.debug3      = kwargs.get('debug3' , False)
@@ -236,12 +247,17 @@ class VideoPipeline(object):
         self.displayResults     = kwargs.get('displayResults'    , self.displayResults    )
         self.displayFittingInfo = kwargs.get('displayFittingInfo', self.displayFittingInfo)
         self.displayRealignment = kwargs.get('displayRealignment', self.displayRealignment)
-        print(' displayRealignement:', self.displayRealignment, '  displayResults: ', self.displayResults, ' displayFittingInfo: ', self.displayFittingInfo)
+
+        print(' displayFittingInfo: ', self.displayFittingInfo, ' displayRealignment:', self.displayRealignment, '  displayResults: ', self.displayResults)
+
         print('From : ', self.inVideo.currFrameNum, ' To:', toFrame)
         
         rc1     = True
         while self.inVideo.currFrameNum < toFrame  and rc1:    
-            rc1 =  self.inVideo.getNextFrame()
+            rc1 =  self.inVideo.getNextFrame(displayResults = self.displayResults,
+                                             displayFittingInfo = self.displayFittingInfo, 
+                                             displayRealignment = self.displayRealignment,
+                                             debug = self.debug, debug2 = self.debug2, debug3 = self.debug3)
             if rc1:
                 output, disp = self()
                 self.outVideo.saveFrameToVideo(output, debug = self.debug)        
@@ -299,12 +315,10 @@ class VideoPipeline(object):
         ###----------------------------------------------------------------------------------------------
         ### Debug Info
         ###----------------------------------------------------------------------------------------------        
-        self.debugInfo_ImageSummaryInfo()
-
-        # if self.debug3:
-            # self.debugInfo_ImageInfo()
 
         if self.debug:
+            self.debugInfo_ImageInfo()
+            self.debugInfo_ImageSummaryInfo()
             self.debugInfo_srcPointsRoI(title= 'Perspective Tx. source points')
 
         ###----------------------------------------------------------------------------------------------
@@ -326,6 +340,7 @@ class VideoPipeline(object):
             self.working_image = outputs[self.thresholdMethod]
             self.imgThrshld = outputs[self.thresholdMethod]
         
+        # display_one(self.imgThrshld, size=(15,7), title = 'imgThrshld')
         # display_two(self.imgThrshld, self.working_image, title1 = 'imgThrshld', title2 = 'working_image')
 
         # if self.exit == 1:
@@ -415,7 +430,7 @@ class VideoPipeline(object):
         ###----------------------------------------------------------------------------------------------        
         if self.displayResults:
             self.build_display_results()
-        
+
         if self.firstFrame :
             self.firstFrame = False
 
@@ -975,6 +990,7 @@ class VideoPipeline(object):
         self.resultExtraInfo.addPlot(result_1         , title = 'result_1 : Using LAST fit')
         self.resultExtraInfo.addPlot(self.resultImage , title = 'finalImage : Using BEST fit'+self.frameTitle)
         self.resultExtraInfo.closePlot()
+
         return 
     
 

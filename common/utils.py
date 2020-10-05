@@ -50,7 +50,6 @@ def display_one(img, title = 'Input image ', cmap = 'jet' , grayscale = False,
         fig , ax = plt.subplots(1, 1, figsize=size)
          
     fig.canvas.set_window_title(winttl+' : '+ title)        
-    
     if img.ndim == 1:    ## histrograms
         x = np.arange(0,img.shape[0],1) 
         cs = ax.plot(img)
@@ -73,10 +72,10 @@ def display_one(img, title = 'Input image ', cmap = 'jet' , grayscale = False,
     
     if cbar:
         fig.colorbar(cs, shrink=0.5, aspect=20, fraction=0.05)
-    
+
     ax.set_title(title+'  '+str(img.shape))
+    
     plt.show()
-    return
 
 
 def display_one_cbar(image, title = 'Image', cmap = 'jet'):
@@ -1385,7 +1384,7 @@ def polynomial_proximity_detection(binary_warped, LLane, RLane, **kwargs):
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint     
     
     if debug:
-        print('Search_around_poly()')
+        print('polynomial_proximity_detection()')
         print('-'*20)
         print('   Search margin       : {}     '.format(search_margin))
         print('   Histogram max   Left: {}     Right: {}'.format(leftx_base, rightx_base))
