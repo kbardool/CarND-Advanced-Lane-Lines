@@ -4,8 +4,8 @@
 <!-- <head> -->
 <link rel="stylesheet"  href="markdown_styles.css">
 <!-- </head> -->
-<!-- @import "css/markdown-styles.css" -->
-<!-- @import "/css/main.css" -->
+<!-- @import "writeup_images/css/markdown-styles.css" -->
+<!-- @import "writeup_images/css/main.css" -->
 <!-- (setq markdown-xhtml-header-content) -->
 
 
@@ -322,7 +322,7 @@ Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspectiv
 </p>
 
 
-### Assessment of detected lane pixels
+### Assessment of detected pixels
 `assess_lane_detections()` (lines 412-532 of `classes/videopipeline.py`) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
 
 #### Lane-level assessments:
@@ -335,7 +335,7 @@ Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspectiv
 - ratio of detected non-zero pixels to total non-zero pixels in search regions 
 - number of non-zero pixels detected in lane search region to total number of 
 
-These allow us to determine whether the detected pixel are reliable enough to use the fitted polynomals for lane detection. For example, if the image is over saturated, the ratio of non-zero pixels to total pixels and lane non-zero pixels to lane search pixels will be extremely high, and as a result the fitted polynomials cannot be relied upon.
+These allow us to determine whether the detected pixels are reliable enough to use the fitted polynomials for lane detection. For example, if the image is over saturated, the ratio of non-zero pixels to total pixels and lane non-zero pixels to lane search pixels will be extremely high, and as a result the fitted polynomials cannot be relied upon.
 
 <p align="center">
 <img title="image analysis plot" alt="alt" src="./writeup_images/pixel_ratio_analysis_2.png"  width="512" />
@@ -363,37 +363,72 @@ Another part that was added during the work on the harder challenge video was th
 After each reliable lane detection we taken the top and bottom points on each lane and calculate the difference between them and the perspective transformation points. If the horizontal difference (along x axis) is larger than a preset threshold (`OFF_CENTER_ROI_THRESHOLD`) we adjust the source transformation points. This will be applied on the next and subsequent frames. Since we adjust the perspective transformation, we also set a flag to apply the sliding window detection algorithm on the next video frame. 
 
  <br>
- <br>
- <br>
 
- ### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+ ### Final video outputs 
 
+ <br>
 
 - [Project Video](https://youtu.be/zuZbICpFCIo)
-
-
 <p align="center">
   <a href="https://www.youtube.com/watch?v=zuZbICpFCIo"><img src="writeup_images/thumbnail_project_video.png" alt="Project Video" width="450"></a>
 </p>
-
+ <br>
 
 - [Challenge Video](https://youtu.be/RgM5bsvKJNM)
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=RgM5bsvKJNM"><img src="writeup_images/thumbnail_challenge_video.png" alt="Challenge Video" width="450"></a>
 </p>
-
+ <br>
 
 - [Hardest Challenge video](https://youtu.be/RgM5bsvKJNM)
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=RgM5bsvKJNM"><img src="writeup_images/thumbnail_challenge_video.png" alt="harder Challenge Video" width="450"></a>
+  <a href="https://youtu.be/UJN9KKazyLM"><img src="writeup_images/thumbnail_harder_challenge_video.png" alt="harder Challenge Video" width="450"></a>
+</p>
+
+## Discussion 
+
+I have discussed a number of approaches take to address more challenging conditions in the previous section. Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+
+In this section we touch on various challenges faced during the implementation of this project, and how each was addressed.
+
+* #### Thresholding of the warped image
+Generally in the detection process we first apply binary thresholding and warp (apply perspective transformation ) afterwards. 
+
+I also experimented with the reverse order, that is, first warping the video frame, and applying binary thresholding to the warped image. In the case of the challenge videos, this actually provided very good results when the normal process encountered difficulties in lane detection due to various artifacts present in the image.
+
+The detection algorithm allows selection of this processing method through the `process_mode` parameter. When `process_mode = 1` the normal process is followed: Each video frame is thresholded, and perspective transformation is applied on the resulting binary-thresholded image.
+
+When `process_mode = 2' perspective transformation is applied to the input frame first. Binary thresholding is applied afterwards.
+
+
+<p align="center">
+<img title="process mode differences" alt="alt" src="./writeup_images/challenge_video_results_frame_137_cropped.png"  width="768" />
+<br>
+Binary Thresholding results using different processing orders. Left Column: Perspective Transformation applied before binary thresholding.  Right Column: Perspective Transformation applied before binary thresholding.
+<br><br>
 </p>
 
 
+* #### Lane detection under adverse conditions 
+One of the main challenges in video lane detection was adapting our algorithm for roubstness towards varying road surface conditions, driving conditions, and road/scene lighting conditions. 
 
-## Discussion
+For the original project video,  two level conditional thresholding was introduced, where each frame was categorized based on each frame's saturation conditions, and appropriate threshold levels were used for binary thresholding. 
 
-### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+As the focused shifted towards the more challenging videos, the simple two level thresholding scheme was no longer sufficient, so the conditional thresholding algorithm was expanded to cover multiple lighting conditions, as describe in the video pipeline section.
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+Another issue was correctly recognizing lane makers when the surface has other confusing artifacts that can be easily confused with lane markers. For this we introduced lane detection quality, control which determined if the algorithm has enough certainty in the quality of the detections. 
+
+* #### Lane continuation
+
+Another challenge is issue of continuing the lane display if detection is unsuccessful for one or more video frames. In these situations the algorithm must be able to display lane detections as long as it possibly can. 
+
+To this goal we maintain a history of detected lane information (fitted polynomials, x/y coordinates, etc...). If the detection algorithm is unable to predict one or both lanes with a minimum level of confidence, it will revert to the kept history to provide an estimated lane detection. If the algorithm is unable to confidently detect lanes for a number of frames, the color in the inter-lane region is changed from green to yellow and eventually red to indicate the reduced quality of lane detections. 
+
+
+* #### Challenging scenarios when lane detection may fail.  What could be done to make it more robust?
+
+Under extremely over- or under-saturated conditions as some intervals in the harder challenging video, line detection fails due to the absence of any discernable lane in the image. Additionally in adverse weather conditions where the road surface is covered with ice or snow, or blizzard conditions where visibility is severely reduced, our algorithm will fail to detect lane markers.
+
+To improve robustness more sophisticated lane continuation approaches should be considered, where in addition to the detection history other factors such as close-by vehicles, sign postings and traffic lights, and road surface vs. non-road surface segmentation are take into account. A learning algorithm could be trained to determine optimal threshold parameters based on the image color level, hue and saturation characteristics. 
