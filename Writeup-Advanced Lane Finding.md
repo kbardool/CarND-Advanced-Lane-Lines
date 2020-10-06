@@ -446,7 +446,7 @@ To improve robustness more sophisticated lane continuation approaches should be 
 As mentioned in the course material, our polynomial fitting process fits the $(x,y)$ of detected pixels, solving for \(f(y)\), determining the coefficients for the following function.
 
 ```math 
-\large f(y) = x = Ay^2 + By + C 
+f(y) = x = Ay^2 + By + C 
 ```
 
 The radius of the curvature is defined as:
