@@ -152,6 +152,7 @@ To create the final thresholded image, we experimented creating a **compound** b
 |  Saturation      |  (200,255)  |
 |  RGB Levels      |  (210, 255) |
 
+
 <br>
 Images below demonstrate various combinations of compound binary thresholding operations.
 <br>
@@ -197,7 +198,7 @@ The perspective transform was tested` by drawing the `src` and `dst` points onto
 <br>
 <br>
 
-The \(X_{left}\) and \(X_{right}\) positions are used as starting points in the sliding window algorithm we use to search for left and right lane pixels. The first windows are centered at \(X_{left}\) and \(X_{right}\), respectively. For each window, the non-zero pixels located within the window region are selected and counted.
+The <img src="https://latex.codecogs.com/gif.latex?x_{left}" title="x_{left}" /> and <img src="https://latex.codecogs.com/gif.latex?x_{right}" title="x_{right}" /> positions are used as starting points in the sliding window algorithm we use to search for left and right lane pixels. The first windows are centered at <img src="https://latex.codecogs.com/gif.latex?x_{left}" title="x_{left}" /> and <img src="https://latex.codecogs.com/gif.latex?x_{right}" title="x_{right}" />, respectively. For each window, the non-zero pixels located within the window region are selected and counted.
 
 ```python
 # Identify the nonzero pixels in x and y within each window.nonzerox and nonzeroy are the x,y # 
@@ -394,6 +395,7 @@ After each reliable lane detection we taken the top and bottom points on each la
 </p>
 
 <br>
+
 ## Discussion 
 
 I have discussed a number of approaches take to address more challenging conditions in the previous section. Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
@@ -443,8 +445,7 @@ To improve robustness more sophisticated lane continuation approaches should be 
 ## Appendix
 #### Computation of lane curvatures
 
-As mentioned in the course material, our polynomial fitting process fits the \((x,y)
-\) of detected pixels, solving for \(f(y)\), determining the coefficients for the following function.
+As mentioned in the course material, our polynomial fitting process fits the <img src="https://latex.codecogs.com/gif.latex?(x,y)" title="(x,y)" /> of detected pixels, solving for <img src="https://latex.codecogs.com/gif.latex?f(y)" title="f(y)" />, determining the coefficients for the following function.
 
 <!-- $$ f(y) = x = Ay^2 + By + C $$ 
  -->
@@ -474,8 +475,8 @@ Therefore the radius of curvature can be computed as :
 <a href="https://www.codecogs.com/eqnedit.php?latex=\large&space;R_{curve}&space;=&space;\frac{{[1&plus;&space;f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\large&space;R_{curve}&space;=&space;\frac{{[1&plus;&space;f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}" title="\large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}" /></a>
 </p>
 
-Note that the \(C\) coefficient has no effect on the radius of the curvature.
-Considering that the (x, y) coordinates used in polynomal fitting are in pixels, and we want to display the radius of curvature in meters, we convert the equation into meters by replacing $x_{pixel}$ and $y_{pixel}$ with $x_{meter}$ and $y_{meter}$:
+Note that the C coefficient has no effect on the radius of the curvature.
+Considering that the (x, y) coordinates used in polynomal fitting are in pixels, and we want to display the radius of curvature in meters, we convert the equation into meters by replacing <a href="https://www.codecogs.com/eqnedit.php?latex=x_{pixel}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?x_{pixel}" /></a> and <a href="https://www.codecogs.com/eqnedit.php?latex=y_{pixel}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?y_{pixel}"/></a> with <a href="https://www.codecogs.com/eqnedit.php?latex=x_{meter}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?x_{meter}" /></a> and <a href="https://www.codecogs.com/eqnedit.php?latex=y_{meter}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?y_{meter}"/></a>:
 
 <!-- $$ \qquad \qquad \qquad \large x_{pixel} = \frac{x_{meter}}{MX}  \qquad \qquad  y_{pixel} = \frac{x_{meter}}{MY} $$ -->
 <p align="center">
@@ -500,9 +501,9 @@ solving for \(x_{meter}\):
 
 
 
-And we use the \(R_{curve}\) defined above to compute the radius in meters.
+And we use the <a href="https://www.codecogs.com/eqnedit.php?latex=x_{meter}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?x_{meter}" title="x_{meter}" /></a> defined above to compute the radius in meters.
 
-The implemented code is as follows:
+The implemented code is `get_radius()` (lines 204-238 in ./classes/line.py).   :
 
 ```python
 
