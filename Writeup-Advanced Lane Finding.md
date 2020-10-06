@@ -445,34 +445,49 @@ To improve robustness more sophisticated lane continuation approaches should be 
 
 As mentioned in the course material, our polynomial fitting process fits the $(x,y)$ of detected pixels, solving for \(f(y)\), determining the coefficients for the following function.
 
-$$ \large f(y) = x = Ay^2 + By + C $$
+```math 
+\large f(y) = x = Ay^2 + By + C 
+```
 
 The radius of the curvature is defined as:
 
-$$ \Large R_{curve} = \frac{{[1+ {(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|} $$
+```math
+ \Large R_{curve} = \frac{{[1+ {(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|}
+ ```
 
 where :
 
-$\qquad \qquad \qquad \large\frac{dx}{dy} = f'(y) = 2Ay+B \qquad \qquad \frac{d^2x}{dy^2} = f''(y) = 2A$
+```math
+ \large\frac{dx}{dy} = f'(y) = 2Ay+B \qquad \qquad \frac{d^2x}{dy^2} = f''(y) = 2A
+ ```
+
 
 Therefore the radius of curvature can be computed as :
 
-$$ \Large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|} $$
+```math
+ \large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|} 
+ ```
 
 Note that the $C$ coefficient has no effect on the radius of the curvature.
 Considering that the (x, y) coordinates used in polynomal fitting are in pixels, and we want to display the radius of curvature in meters, we convert the equation into meters by replacing $x_{pixel}$ and $y_{pixel}$ with $x_{meter}$ and $y_{meter}$:
 
-$ \qquad \qquad \qquad \Large x_{pixel} = \frac{x_{meter}}{MX}  \qquad \qquad   y_{pixel} = \frac{x_{meter}}{MY} $ 
+```math
+\qquad \qquad \qquad \large x_{pixel} = \frac{x_{meter}}{MX}  \qquad \qquad  y_{pixel} = \frac{x_{meter}}{MY}
+```
 
 The polynomial becomes:
 
-$$ \large \frac{x_{meter}}{MX} = A{(\frac{y_{meter}}{MY})}^2 + B(\frac{y_{meter}}{MY}) + C $$
+```math
+ \large \frac{x_{meter}}{MX} = A{(\frac{y_{meter}}{MY})}^2 + B(\frac{y_{meter}}{MY}) + C
+ ```
 
 solving for $x_{meter}$:
 
-$$ \large  x_{meter} = {(A*\frac{MX}{MY^2})}y_{meter}^2 + (B*\frac{MX}{MY})y_{meter} + C $$
+```math
+\large  x_{meter} = {(A*\frac{MX}{MY^2})}y_{meter}^2 + (B*\frac{MX}{MY})y_{meter} + C 
+```
 
-And we use the $R_{curve}$ defined above to compute the radius in meters.
+And we use the \(R_{curve}\) defined above to compute the radius in meters.
 
 The implemented code is as follows:
 
