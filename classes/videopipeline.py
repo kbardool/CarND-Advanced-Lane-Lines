@@ -227,10 +227,12 @@ class VideoPipeline(object):
                                      displayRealignment = self.displayRealignment, 
                                      debug = self.debug, debug2 = self.debug2, debug3 = self.debug3)
             self.outVideo.saveFrameToVideo(outputImage, debug = False)        
-            
+        
             # _ = display_one(outputImage, size=size, title = self.frameTitle)
-            
-            winsound.MessageBeep(type=winsound.MB_ICONHAND)
+        else:
+            outputImage, disp = None, None
+
+        winsound.MessageBeep(type=winsound.MB_ICONHAND)
 
         return (outputImage, disp)
 
@@ -249,7 +251,6 @@ class VideoPipeline(object):
         self.displayRealignment = kwargs.get('displayRealignment', self.displayRealignment)
 
         print(' displayFittingInfo: ', self.displayFittingInfo, ' displayRealignment:', self.displayRealignment, '  displayResults: ', self.displayResults)
-
         print('From : ', self.inVideo.currFrameNum, ' To:', toFrame)
         
         rc1     = True
@@ -261,6 +262,8 @@ class VideoPipeline(object):
                                     displayRealignment = self.displayRealignment,
                                     debug = self.debug, debug2 = self.debug2, debug3 = self.debug3)
                 self.outVideo.saveFrameToVideo(output, debug = self.debug)        
+            else:
+                break
 
             if show and (self.inVideo.currFrameNum % disp_interval == 0):      ##  or (110 <=Pipeline.inVideo.currFrameNum <=160) :
                 
@@ -269,7 +272,7 @@ class VideoPipeline(object):
                             title2 = 'ImgLanePxls (Cyan: Prev fit, Yellow: New proposal, Fuschia: New Best Fit)' )
                 display_one(output, size= size, title = self.inVideo.frameTitle)        
                 
-        print('Finshed - Curr frame number :', self.inVideo.currFrameNum)
+        print('Finshed - Current frame number :', self.inVideo.currFrameNum)
         return
 
 
@@ -928,12 +931,12 @@ class VideoPipeline(object):
         polyRegionColor1 = kwargs.get('color1', 'green')
 
         if debug:
-            print(' Left lane MR fit           : ', self.LeftLane.proposed_fit , '    Right lane MR fit     : ', self.RightLane.proposed_fit)
-            print(' Left lane MR best fit      : ', self.LeftLane.best_fit , '    Right lane MR best fit: ', self.RightLane.best_fit)
-            print(' Left radius @ y =  10   : '+str(self.LeftLane.get_radius(10)) +" m   Right radius: "+str(self.RightLane.get_radius(10))+" m")
-            print(' Left radius @ y = 700   : '+str(self.LeftLane.get_radius(700))+" m   Right radius: "+str(self.RightLane.get_radius(700))+" m")
-            print(' Curvature message : ', curv_msg)
-            print(' Off Center Message: ', oc_msg)            
+            print(' Left lane MR fit      : ', self.LeftLane.proposed_fit , '    Right lane MR fit     : ', self.RightLane.proposed_fit)
+            print(' Left lane MR best fit : ', self.LeftLane.best_fit , '    Right lane MR best fit: ', self.RightLane.best_fit)
+            print(' Left radius @ y =  10 : '+str(self.LeftLane.get_radius(10)) +" m   Right radius: "+str(self.RightLane.get_radius(10))+" m")
+            print(' Left radius @ y = 700 : '+str(self.LeftLane.get_radius(700))+" m   Right radius: "+str(self.RightLane.get_radius(700))+" m")
+            print(' Curvature message     : ', self.curv_msg)
+            print(' Off Center Message    : ', self.oc_msg)            
 
         result_1, _  = displayDetectedRegion(self.imgUndist, self.LeftLane.proposed_curve, self.RightLane.proposed_curve, 
                                         self.Minv, disp_start= self.displayRegionTop , beta = 0.2, 

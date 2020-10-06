@@ -522,7 +522,9 @@ The project It allowed me to reflect on the various difficulties we face when at
 This is one of the main advantages of deep learning based solutions: removing the tedious task of feature selection and extraction from the shoulders of the computer vision practitioner.
 
 <br>
+
 ### Appendicies
+
 #### A - Computation of lane curvatures
 
 As mentioned in the course material, our polynomial fitting process fits the <img src="https://latex.codecogs.com/gif.latex?(x,y)" title="(x,y)" /> of detected pixels, solving for <img src="https://latex.codecogs.com/gif.latex?f(y)" title="f(y)" />, determining the coefficients for the following function.

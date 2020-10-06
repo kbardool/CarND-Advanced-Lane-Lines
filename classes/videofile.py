@@ -114,11 +114,13 @@ class VideoFile(object):
         self.setStartFrame(fromFrame)
         self.setEndFrame(toFrame)
     
+
     def setEndFrame(self, toFrame):
-        self.toFrame = ttlFrames if toFrame >  self.ttlFrames else toFrame
+        self.toFrame = self.ttlFrames if toFrame >  self.ttlFrames else toFrame
         self.rangeFinished = False
         print(' Range set from : ',self.fromFrame, ' to : ', self.toFrame , ' Next frame: ',  self.videoFile.get(1), ' ... Reset pipeline')
     
+
     def setStartFrame(self, fromFrame):
         self.fromFrame = fromFrame
         # print(' Before - get(1) (Next frame)', self.videoFile.get(1), 'currFrameNum: ', self.currFrameNum, ' get(0) currPos(ms): ', self.currPos)
@@ -130,6 +132,7 @@ class VideoFile(object):
         # print(' After - get(1) (Next frame)', self.videoFile.get(1), 'currFrameNum: ', self.currFrameNum, ' get(0) currPos(ms): ', self.currPos)
         return fromFrame
         
+
     def getNextFrame(self, frameNo = None, debug=False):
         if frameNo is not None:
             self.setStartFrame(frameNo)
@@ -150,7 +153,7 @@ class VideoFile(object):
         # print(' After get(0) (curr pos): ', self.videoFile.get(0), ' get(1) (next frame):', self.videoFile.get(1), 'get(2):', self.videoFile.get(2))    
         
         if imageBGR is None:
-            print(' ERROR in reading next frame')
+            print(' No more frames to read')
             rc = False 
         else:
             self.image = cv2.cvtColor(imageBGR, cv2.COLOR_BGR2RGB)

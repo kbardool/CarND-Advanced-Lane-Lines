@@ -489,8 +489,8 @@ def sliding_window_detection_v1(binary_warped, histRange = None,
         right_x_inds = np.where((win_xright_low <= nonzerox) & (nonzerox < win_xright_high))
         right_y_inds = np.where((win_y_low     <=  nonzeroy) & (nonzeroy < win_y_high))
         good_right_inds = np.intersect1d(right_x_inds,right_y_inds,assume_unique=False)
+        
         ###------------------------------------------------------------------------------------
-
         ### UDACITY SOLUTION: Identify the nonzero pixels in x and y within the window ###
         # good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & 
         # (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
