@@ -15,7 +15,7 @@
 
 ---
 
-The goals / steps of this project are the following:
+Goals of this project:
 
 * Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
 * Apply a distortion correction to raw images.
@@ -27,14 +27,16 @@ The goals / steps of this project are the following:
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 ---
-The goals / steps of this writeup: 
+Goals of this writeup: 
 
  Address the project specifications/requirements as laid out in the [Rubric Points](https://review.udacity.com/#!/rubrics/571/view) :
 * Writeup / Readme 
 * [Camera Calibration : ](#camera-calibration) Review of the camera calibration process:  
 * [Image Pipeline : ](#lane-detection-pipeline-single-images) Review of the detection pipeline for images 
 * [Video Pipeline : ](#lane-detection-pipeline-video)Review of the detection pipeline for videos 
-* [Discussion : ](#Discussion) Reflection on work, challenges encountered, and  possible improvements. 
+* [Discussion : ](#Discussion) Reflection on work, challenges encountered, and  possible improvements.
+
+
 ---
 
 [//]: # (Image References)
@@ -63,11 +65,12 @@ The goals / steps of this writeup:
 
 Classes `Camera` and `CalibrationImage` were implemented for the camera and calibration images respectively. Code for these classes are located in `./classes/camera.py` and `./classes/image.py`
  
-The code for this step is contained in the first code cell of the IPython notebook located in "./1-CameraCalebration.ipynb".  
-
-For each chessboard calibration image, an instance of the `CalibrationImage` is instantiated, and its `findChessboardCorners()` method is called. This function is basically a wrapper for the `cv2.findChessboardCorners()`  also accepting `nx` and `ny` parameters that specify the chessboard dimensions. This allows changing the number of inside corners based on the individual calibration image.
+For each chessboard calibration image, an instance of the `CalibrationImage` is instantiated, and its `findChessboardCorners()` method is called. This function is basically a wrapper for the `cv2.findChessboardCorners()`, and also accepting `nx` and `ny` parameters that specify the chessboard dimensions. This allows changing the number of inside corners based on the individual calibration image.
 
 This method prepares the  `objectPts` numpy array which contains the (x, y, z) coordinates of the chessboard corners in the real world (assuming the chessboard is fixed on the (x, y) plane at z=0).  The result of the corner detection, `imagePts`, is a `[nx, ny]` array of the (x, y) pixel position of each of the successfully detected corners in the chessboard image plane.
+
+The code demonstrating the corner detection and computing the camera calibration parameters can be found in the `1-CameraCalibration` notebook.
+
 
 ### Examples of successful corner detections:
  
@@ -77,20 +80,21 @@ This method prepares the  `objectPts` numpy array which contains the (x, y, z) c
 style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
 ### Corner detection failures
-<br>
-When running the detection process for all calibration images using parameters `(nx,ny) = (9,6)` we observe that the corner detection fails for `calibration1.jpg`, `calibration4.jpg`, and `calibration5.jpg`.
+
+The corner detection process was executed using the parameters `(nx,ny) = (9,6)` (number of horizontal and vertical corners). However, we observe that the corner detection fails for three chessboard images: `calibration1.jpg`, `calibration4.jpg`, and `calibration5.jpg`.
 
 The openCV documentation states:
 >The function requires white space (like a square-thick border, the wider the better) around the board to make the detection more robust in various environments. Otherwise, if there is no border and the background is dark, the outer black squares cannot be segmented properly and so the square grouping and ordering algorithm fails.
 
 The three failed images are all missing a sufficient white border on two or more sides of the chessboard:
-
+<br>
 <p align="center">
-<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  width="320" />
-<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  width="320" />
-<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  width="320" />
+<img title="calibration image01" alt="alt" src="./camera_cal/calibration1.jpg "  width="255" />
+<img title="calibration image04" alt="alt" src="./camera_cal/calibration4.jpg "  width="255" />
+<img title="calibration image05" alt="alt" src="./camera_cal/calibration5.jpg "  width="255" />
 </p>
-
+<p align="center">Chessboard images with failed corner detection  from Left: calibration1, calibration4, and calibration5.</p>
+<br>
 
 It is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted. For the purposes of this project however I have only included images that 
 
@@ -102,7 +106,6 @@ Once the camera calibration matrix has been calculated, it is possible to undist
  
 <img title="undistorted image02" alt="alt" src="./writeup_images/undistorted3.png"  style=" margin:10px 50px; width: 100%" />
 <p align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image </p>
-
 <br>
 <br> 
 
@@ -115,7 +118,7 @@ Once the camera calibration matrix has been calculated, it is possible to undist
 <figure>
 <img title="undistorted test4" alt="alt" src="./writeup_images/img_undist_test4.png"  style=" margin:10px 50px; width: 100%" />
 <img title="undistorted test6" alt="alt" src="./writeup_images/img_undist_test6.png"  style=" margin:10px 50px; width: 100%" />
-<p align="center">Example of distortion-correction. &nbsp &nbsp Left: Original Image &nbsp &nbsp  Right: Undistorted Image</p>
+<p align="center">&nbsp &nbsp  Example of distortion-correction. &nbsp &nbsp Left column: Original Image &nbsp &nbsp  Right column: Undistorted Image</p>
 </figure>
 <br>
 <br>
@@ -230,7 +233,7 @@ style=" margin:1px 40px; width: 100%" />
 
 For lane detection on images, radius of curvature calculation is performed in  <code class=redcode>calculate_radius()</code> ( `common/utils.py`, lines 720-728):
 
-```
+```python
 def calculate_radius(y_eval, fit_coeffs, units, MX_denom = 700, MY_denom = 720, debug = False):
     MY = 30/MY_denom # meters per pixel in y dimension
     MX= 3.7/MX_denom # meters per pixel in x dimension
@@ -253,21 +256,21 @@ The code to plot / overlay the detected lanes back onto the image is implemented
 
 <br>
 <p align="center">
-<img title="test image 1" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg "  height="240"/>
-<img title="test image 2" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg "  height="240"/>
+<img title="test image 1" alt="alt" src="./output_images/test1_output_mode1_09_01_2020.jpg" width="310"/>
+<img title="test image 2" alt="alt" src="./output_images/test2_output_mode1_09_01_2020.jpg" width="310"/>
 <br>
-Results of lane detection over images test1 - test3
+Results of lane detection over images test1 & test2
 <br>
 <br>
-<img title="test image 3" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg "  height="240"/>
-<img title="test image 4" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" height="240"/>
+<img title="test image 3" alt="alt" src="./output_images/test3_output_mode1_09_01_2020.jpg" width="310"/>
+<img title="test image 4" alt="alt" src="./output_images/test4_output_mode1_09_01_2020.jpg" width="310"/>
 <br>
-Results of lane detection over images test5 - test6
+Results of lane detection over images test3 & test4
 <br><br>
-<img title="test image 5" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg" height="240"/>
-<img title="test image 6" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg"  height="240"/>
+<img title="test image 5" alt="alt" src="./output_images/test5_output_mode1_09_01_2020.jpg" width="310"/>
+<img title="test image 6" alt="alt" src="./output_images/test6_output_mode1_09_01_2020.jpg" width="310"/>
 <br>
-Results of lane detection over images test5 - test6
+Results of lane detection over images test5 & test6
 <br>
 <br>
 </p>
@@ -278,16 +281,19 @@ Results of lane detection over images test5 - test6
 For the video stream lane detection, I started from the code base for image lane detection. A significant number of modifications and enhancements were made to the software. A detailed explanation of all enhancements would be beyond the brevity requirements of this report, so I will only discuss the most important points:
 
 
-### New Class Definitions:
-- `VideoPipeline`: Pipeline class for video input. 
-- `Line` class instantiated for left/right lane detection. Manage fitted polynomial attributes and methods during the video frame lanes detection process.
-- `VideoFile` used to manage input/output video files. Instantiated twice per pipeline execution, for input and output files, respectively.
+### Code Enhancements
 
-- Many of the functions written for the image lane detection were reimplemented to support the new classes.
+- New `VideoPipeline` class: Pipeline class for video input. 
+
+- New `Line` class: instantiated for left/right lane detection. Fitted polynomial attributes and methods during the video frame lanes detection process are implemented under this class.
+
+- New `VideoFile` class: used to manage input/output video files. Instantiated twice per pipeline execution, for input and output files, respectively.
+
+- Many of the functions written for the image lane detection were reimplemented to support the above mentioned classes.
 
 - A series of "debug helpers" were written to tracking, verification, and troubleshooting purposes. 
 
-- A series of visualization helpers were written to research the video frame characteristics for dynamic frame thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
+- A series of visualization helper routines were written to research and tune the proper thresholding levels to be used in  dynamic frame thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
 
 ### Dynamic Frame Thresholding
 
@@ -322,7 +328,7 @@ Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspectiv
 </p>
 
 
-### Assessment of detected pixels
+### Assessment of detected lane pixels
 `assess_lane_detections()` (lines 412-532 of `classes/videopipeline.py`) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
 
 #### Lane-level assessments:
@@ -362,9 +368,9 @@ Another part that was added during the work on the harder challenge video was th
 
 After each reliable lane detection we taken the top and bottom points on each lane and calculate the difference between them and the perspective transformation points. If the horizontal difference (along x axis) is larger than a preset threshold (`OFF_CENTER_ROI_THRESHOLD`) we adjust the source transformation points. This will be applied on the next and subsequent frames. Since we adjust the perspective transformation, we also set a flag to apply the sliding window detection algorithm on the next video frame. 
 
- <br>
 
- ### Final video outputs 
+
+## Final video outputs 
 
  <br>
 
@@ -387,6 +393,7 @@ After each reliable lane detection we taken the top and bottom points on each la
   <a href="https://youtu.be/UJN9KKazyLM"><img src="writeup_images/thumbnail_harder_challenge_video.png" alt="harder Challenge Video" width="450"></a>
 </p>
 
+<br>
 ## Discussion 
 
 I have discussed a number of approaches take to address more challenging conditions in the previous section. Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
@@ -432,3 +439,66 @@ To this goal we maintain a history of detected lane information (fitted polynomi
 Under extremely over- or under-saturated conditions as some intervals in the harder challenging video, line detection fails due to the absence of any discernable lane in the image. Additionally in adverse weather conditions where the road surface is covered with ice or snow, or blizzard conditions where visibility is severely reduced, our algorithm will fail to detect lane markers.
 
 To improve robustness more sophisticated lane continuation approaches should be considered, where in addition to the detection history other factors such as close-by vehicles, sign postings and traffic lights, and road surface vs. non-road surface segmentation are take into account. A learning algorithm could be trained to determine optimal threshold parameters based on the image color level, hue and saturation characteristics. 
+
+## Appendix
+#### Computation of lane curvatures
+
+As mentioned in the course material, our polynomial fitting process fits the $(x,y)$ of detected pixels, solving for \(f(y)\), determining the coefficients for the following function.
+
+$$ \large f(y) = x = Ay^2 + By + C $$
+
+The radius of the curvature is defined as:
+
+$$ \Large R_{curve} = \frac{{[1+ {(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|} $$
+
+where :
+
+$\qquad \qquad \qquad \large\frac{dx}{dy} = f'(y) = 2Ay+B \qquad \qquad \frac{d^2x}{dy^2} = f''(y) = 2A$
+
+Therefore the radius of curvature can be computed as :
+
+$$ \Large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|} $$
+
+Note that the $C$ coefficient has no effect on the radius of the curvature.
+Considering that the (x, y) coordinates used in polynomal fitting are in pixels, and we want to display the radius of curvature in meters, we convert the equation into meters by replacing $x_{pixel}$ and $y_{pixel}$ with $x_{meter}$ and $y_{meter}$:
+
+$ \qquad \qquad \qquad \Large x_{pixel} = \frac{x_{meter}}{MX}  \qquad \qquad   y_{pixel} = \frac{x_{meter}}{MY} $ 
+
+The polynomial becomes:
+
+$$ \large \frac{x_{meter}}{MX} = A{(\frac{y_{meter}}{MY})}^2 + B(\frac{y_{meter}}{MY}) + C $$
+
+solving for $x_{meter}$:
+
+$$ \large  x_{meter} = {(A*\frac{MX}{MY^2})}y_{meter}^2 + (B*\frac{MX}{MY})y_{meter} + C $$
+
+And we use the $R_{curve}$ defined above to compute the radius in meters.
+
+The implemented code is as follows:
+
+```python
+
+def get_radius(self, fit_parms = None, y_eval = 0, debug = False):
+        
+        y_eval_MY      = y_eval * self.MY
+        exponents      = np.arange(self.poly_deg,-1,-1)
+        MY_factors     = np.power((1.0 / self.MY), exponents)
+        fit_parms_mod  = fit_parms * MY_factors * self.MX
+
+        firstDerivParms  = np.polyder(fit_parms_mod, 1)
+        firstDeriv_eval  = np.polyval(firstDerivParms, y_eval_MY )
+        secondDerivParms = np.polyder(fit_parms_mod, 2)
+        secondDeriv_eval = np.polyval(secondDerivParms, y_eval_MY)
+
+        if np.all(secondDerivParms == np.zeros_like(secondDerivParms)) :
+            # print( ' second deriv is zero ')
+            cur_radius = np.ones_like(y_eval) * 6000
+        else:
+            cur_radius = ((1 + (firstDeriv_eval)**2)** 1.5)/np.absolute(secondDeriv_eval) 
+
+        cur_radius = np.clip(cur_radius, 0, 6000).tolist()
+        
+        return np.round(cur_radius,2) 
+
+
+```

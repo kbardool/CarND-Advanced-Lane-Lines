@@ -57,7 +57,7 @@ class Line():
         # proposed_curve: x values of the most recent fitting of the line
         # fitted_history: x values of the last n fits of the line  
         #-----------------------------------------------------------------------
-        self.proposed_fit             = None ## np.array([0,0,0], dtype='float')        
+        self.proposed_fit         = None ## np.array([0,0,0], dtype='float')        
         self.proposed_fit_history = [np.array([0,0,0], dtype='float') ] 
 
         self.proposed_curve         = None        
@@ -206,6 +206,7 @@ class Line():
         y_eval_MY      = y_eval * self.MY
         exponents      = np.arange(self.poly_deg,-1,-1)
         MY_factors     = np.power((1.0 / self.MY), exponents)
+        
         # print('  fit_parms: {}   exponents: {}   MY_factors: {} '.format(fit_parms, exponents, MY_factors))
         fit_parms_mod  = fit_parms * MY_factors * self.MX
 
@@ -223,7 +224,7 @@ class Line():
         if debug:
             print(' MY              : ', self.MY,  ' MY_inv: ', 1.0 / self.MY)
             print(' y_eval          : ', y_eval   ,  ' y_eval * MY     : ', y_eval_MY)
-            print(' expoents        : ', exponents)
+            print(' exponents       : ', exponents)
             print(' (1/MY)**i       : ', MY_factors)
             print(' fit parms       : ', fit_parms  ,  ' fit_parms_mod : ', fit_parms_mod)
             print(' firstDerivParms : ', type(firstDerivParms),' - ', firstDerivParms)
