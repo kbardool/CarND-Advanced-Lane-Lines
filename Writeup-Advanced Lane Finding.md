@@ -449,6 +449,8 @@ As mentioned in the course material, our polynomial fitting process fits the $(x
 
 <div align="center"><img src="https://render.githubusercontent.com/render/math?math="></div>
 
+
+
 The radius of the curvature is defined as:
 
 ```math
