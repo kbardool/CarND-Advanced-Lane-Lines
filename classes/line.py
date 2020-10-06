@@ -429,8 +429,8 @@ class Line():
         
         self.proposed_fit = np.copy(self.best_fit)
         # self.poly_deg = self.best_fit.shape[0] - 1
-        self.set_best_fit(debug = debug2)
 
+        self.set_best_fit(debug = debug2)
         self.set_proposed_curve()
         self.set_fitted_best()
 

@@ -15,7 +15,7 @@
 
 ---
 
-Goals of this project:
+Project Goals:
 
 * Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
 * Apply a distortion correction to raw images.
@@ -27,37 +27,19 @@ Goals of this project:
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 ---
-Goals of this writeup: 
 
- Address the project specifications/requirements as laid out in the [Rubric Points](https://review.udacity.com/#!/rubrics/571/view) :
-* Writeup / Readme 
+This writeup addresses the project specifications/requirements as laid out in the [Rubric Points](https://review.udacity.com/#!/rubrics/571/view) :
+
 * [Camera Calibration : ](#camera-calibration) Review of the camera calibration process:  
 * [Image Pipeline : ](#lane-detection-pipeline-single-images) Review of the detection pipeline for images 
 * [Video Pipeline : ](#lane-detection-pipeline-video)Review of the detection pipeline for videos 
-* [Discussion : ](#Discussion) Reflection on work, challenges encountered, and  possible improvements.
+* [Discussion : ](#discussion) Reflection on work, challenges encountered, and  possible improvements.
 
+The [Appendix](#appendix) contains additional information on certain code implementations.
 
 ---
 
-[//]: # (Image References)
-<!-- [image1]: ./examples/undistort_output.png "Undistorted"
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
-[image01]: ./camera_cal/calibration1.jpg "calibration1 image"
-[image02]: ./camera_cal/calibration4.jpg "calibration4"
-[image03]: ./camera_cal/calibration5.jpg "calibration5"
-[image04]: ./writeup_images/detectcorners2.png "detectcorner2"
-[image05]: ./writeup_images/detectcorners3.png "detectcorner3"
-[image06]: ./writeup_images/undistorted2.png "undistorted2"
-[image07]: ./writeup_images/undistorted3.png "undistorted3" -->
 
-
-
- 
 ## Camera Calibration
 <br>
 
@@ -72,14 +54,14 @@ This method prepares the  `objectPts` numpy array which contains the (x, y, z) c
 The code demonstrating the corner detection and computing the camera calibration parameters can be found in the `1-CameraCalibration` notebook.
 
 
-### Examples of successful corner detections:
+#### Examples of successful corner detections:
  
 <img title="image02 corner detection" alt="alt" src="./writeup_images/detectcorners2.png" style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
 <img title="image03 corner detection" alt="alt" src="./writeup_images/detectcorners3.png"  
 style="vertical-align:middle;margin:10px 100px;width: 70%"  />
 
-### Corner detection failures
+#### Corner detection failures
 
 The corner detection process was executed using the parameters `(nx,ny) = (9,6)` (number of horizontal and vertical corners). However, we observe that the corner detection fails for three chessboard images: `calibration1.jpg`, `calibration4.jpg`, and `calibration5.jpg`.
 
@@ -96,24 +78,44 @@ The three failed images are all missing a sufficient white border on two or more
 <p align="center">Chessboard images with failed corner detection  from Left: calibration1, calibration4, and calibration5.</p>
 <br>
 
-It is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted. For the purposes of this project however I have only included images that 
+It is possible to successfully run corner detection on these images when the `(nx,ny)` parameters are adjusted. For example, we can successfully detect corners for calibration5.png when we set (nx, ny) to (7, 6), as illustrated below: 
 
-Image objects that successfully pass the corner detection process are saved in a list that is passed to the `camera.calibrate()` method. This method passes real world points `image.objPoints` and the equivalent image coordinates `image.imgPoints`  to compute the camera's calibration matrix and distortion coefficients as well as the rotation/translation vectors for each image).
+<br>
+<p align="center">
+<img title="calibration image05" alt="alt" src="./writeup_images/detectcorners5.png"  width="800" />
+</p>
+<p align="center">Successful corner detection on <code>calibration5.jpg</code> when  (nx, ny) are set to (7,6)</p>
+<br>
+
+
+For the purposes of this project, we only include images in the calibration process that pass the corner detection process with (nx, ny) = (9, 6).
+
+#### Camera Calibration 
+Image objects that successfully pass the corner detection process are saved in a list and passed to the `camera.calibrate()` method. This method receives real world points `image.objPoints` and the equivalent image coordinates `image.imgPoints`  to compute the camera's calibration matrix and distortion coefficients as well as the rotation/translation vectors for each image. The camera calibration parameters are saved in a pickle file for future reference. 
  
 Once the camera calibration matrix has been calculated, it is possible to undistort images - two examples of undistorted images are shown below:
 
 <img title="undistorted image02" alt="alt" src="./writeup_images/undistorted2.png"  style=" margin:10px 50px; width: 100%" />
  
 <img title="undistorted image02" alt="alt" src="./writeup_images/undistorted3.png"  style=" margin:10px 50px; width: 100%" />
-<p align="center">Example of distortion-correction. Left: Original Image &nbsp  Right: Undistorted Image </p>
+<p align="center">Example of distortion-correction. &nbsp Left column: Original Images 
+&nbsp &nbsp Right: Undistorted Image </p>
 <br>
 <br> 
 
 ## Lane Detection Pipeline (single images)
-<br>
 
-### 1. Provide an example of a distortion-corrected image.
 
+#### 1. Provide an example of a distortion-corrected image.
+
+To apply distortion correction, the `undistortImage()` method of the camera object is invoked.
+
+```python
+        ###----------------------------------------------------------------------------------------------
+        ###  Remove camera distortion and apply perspective transformation
+        ###----------------------------------------------------------------------------------------------
+        imgUndist = self.camera.undistortImage(imgInput)
+```
 
 <figure>
 <img title="undistorted test4" alt="alt" src="./writeup_images/img_undist_test4.png"  style=" margin:10px 50px; width: 100%" />
@@ -123,7 +125,7 @@ Once the camera calibration matrix has been calculated, it is possible to undist
 <br>
 <br>
 
-### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.  
+#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  
 
 A number of thresholding methods were implemented and experimented with in order to select a robust thresholded binary image that will work for most lighting combinations. 
 
@@ -152,8 +154,8 @@ To create the final thresholded image, we experimented creating a **compound** b
 |  Saturation      |  (200,255)  |
 |  RGB Levels      |  (210, 255) |
 
-
 <br>
+#### Provide examples of a binary image result.  
 Images below demonstrate various combinations of compound binary thresholding operations.
 <br>
 
@@ -165,7 +167,7 @@ Images below demonstrate various combinations of compound binary thresholding op
 <br>
 
 
-### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
+#### 3. Describe how (and identify where in your code) you performed a perspective transform
 
 Perspective transformation is done in <code class=redcode>perspectiveTransform()</code> located in `./common/sobel.py` lines 18 to 28.  `perspectiveTransform()` takes receives source (`source`) and destination (`dest`) points, and the image to transform. It first calls `cv2.getPerspectiveTransform()` to obtain the transformation matrix `M`. Next, it calls `cv2.warpPerspective()` to apply the perspective transformation on the input image using the calculated transformation matrix.   
 
@@ -181,16 +183,18 @@ We ended up using the following source and destination points:
 |  Bottom Right    | 1090, 700   | 960, 719     |
 |  Bottom Left     |  220, 700   | 960, 719     |
 
-The perspective transform was tested` by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+The perspective transform was tested by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+
+#### Example of a transformed image.
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_roi_sline1.png"  style=" margin:10px 40px; width: 100%" />
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_roi_test4.png"  style=" margin:10px 40px; width: 100%" />
 <p align="center">Example of perspective transformation</p>
 <br>
 
-### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-<code class=redcode>sliding _window_detection_v1()</code> is the routine responsible for lane-pixel identification. This code is located `common/utils.py`, lines 1155-1325.  This routine first generates a histogram of active pixels in the lower 1/3rd of the thresholded image, detects the peak positions (counting the pixels per x position) and finds the x location corresponding to the peak positions located on the left and right of the x-axis midline.
+<code class=redcode>sliding _window_detection_v1()</code> is the routine responsible for lane-pixel identification. This code is located in `classes/imagepipeline.py`, lines 385-555.  This function first generates a histogram of active pixels in the lower 1/3rd of the thresholded image. It then attmepts to detect the peak positions (counting the pixels per x position) and finds the x location corresponding to the peak positions located on the left and right of the x-axis midline.
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_a.png"  style=" margin:10px 40px; width: 100%" /> 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_b.png"  style=" margin:1px 40px; width: 100%" />
@@ -223,16 +227,16 @@ style=" margin:1px 40px; width: 100%" />
 <p align="center">Example of lane pixel detection using the sliding window algorithm</p>
 <br>
  
-The X and Y coordinates of the selected pixels (red and blue pixels in image above) are the passed on to the line fitting process, <code class=redcode>fit_polynomial_v1</code> ( `common/utils.py`, lines 347-361). This routine calls `np.polyfit` to fit a second degree polynomial over the detected pixels. 
+The X and Y coordinates of the selected pixels (red and blue pixels in image above) are the passed on to the line fitting process, <code class=redcode>fit_polynomial_v1</code> ( `classes/imagepipeline.py`, lines 558-572). This routine calls `np.polyfit` to fit a second degree polynomial over the detected pixels. 
 
 <img title="undistorted test1" alt="alt" src="./writeup_images/img_thresholding_test3_c.png"  
 style=" margin:1px 40px; width: 100%" />
 <p align="center">Example of lane pixel detection and fitted polynomials</p>
 <br>
 
-### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+#### 5.1 Describe how (and identify where in your code) you calculated the radius of curvature of the lanes.
 
-For lane detection on images, radius of curvature calculation is performed in  <code class=redcode>calculate_radius()</code> ( `common/utils.py`, lines 720-728):
+For lane detection on images, radius of curvature calculation is performed in  <code class=redcode>calculate_radius()</code> ( `classes/imagepipeline.py`, lines 720-730):
 
 ```python
 def calculate_radius(y_eval, fit_coeffs, units, MX_denom = 700, MY_denom = 720, debug = False):
@@ -246,14 +250,47 @@ def calculate_radius(y_eval, fit_coeffs, units, MX_denom = 700, MY_denom = 720, 
     return  ((1 + ((2*A*(y_eval*MY))+B)**2)** 1.5)/np.absolute(2*A) 
 ```
 
-The curvature message displayed on the image is build in  <code class=redcode>curvatureMsg_V1()</code> ( `common/utils.py`, lines 730-745)
+The curvature message displayed on the image is built in  <code class=redcode>curvatureMsg_V1()</code> ( `classes/imagepipeline.py`, lines 749-767)
 
-The off-center calculation and message generation is done in  <code class=redcode>offCenterMsg_V1()</code> ( `common/utils.py`, lines 763-797)
+**Note:** Radius of curvature for video frames are calculated using the same algorithm, but using numpy polynomial . See appendix A for more details
 
+#### 5.2 Describe how (and identify where in your code) you calculated the position of the vehicle with respect to center.
 
-### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+The position of the vehicle with respect to the lane center is calculated in  <code class=redcode>offCenterMsg_V1()</code> (`classes/imagepipeline.py`, lines 688-718)
 
-The code to plot / overlay the detected lanes back onto the image is implemented in <code class=redcode>displayDetectedRegion_v1()</code> ( `common/utils.py`, lines 657-707). The necessary overlay is constructed and added to the input image using `cv2.addWeighted()` function.  
+```python
+def offCenterMsg_v1(y_eval, left_fitx, right_fitx, center_x, units = 'm', debug = False):
+    '''
+    Calculate position of vehicle relative to center of lane
+    Original version used for Image Pipeline
+
+    Parameters:
+    -----------
+    y_eval:                 y-value where we want radius of curvature
+    left_fitx, right_fitx:  x_values at y_eval
+    center_x:               center of image, represents center of vehicle
+    units   :               units to calculate off_center distance in 
+                            pixels 'p'  or meters 'm'
+    '''
+    
+    mid_point  = left_fitx + (right_fitx - left_fitx)//2
+    off_center_pxls = mid_point - center_x 
+    off_center_mtrs = off_center_pxls * (3.7/700)
+    
+    oc = off_center_mtrs if units == 'm' else off_center_pxls
+    
+    if off_center_pxls != 0 :
+        output = str(abs(round(oc,3)))+(' m ' if units == 'm' else ' pxls ')  +('left' if oc > 0 else 'right')+' of lane center'
+    else:
+        output = 'On lane center'
+    
+    return output ## round(off_center_mtrs,3), round(off_center,3)
+```
+
+<br>
+#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+
+The code to plot / overlay the detected lanes back onto the image is implemented in <code class=redcode>displayDetectedRegion_v1()</code> (`classes/imagepipeline.py`, lines 634-684). The necessary overlay is constructed and added to the input image using `cv2.addWeighted()` function.  
 
 <br>
 <p align="center">
@@ -282,7 +319,7 @@ Results of lane detection over images test5 & test6
 For the video stream lane detection, I started from the code base for image lane detection. A significant number of modifications and enhancements were made to the software. A detailed explanation of all enhancements would be beyond the brevity requirements of this report, so I will only discuss the most important points:
 
 
-### Code Enhancements
+#### Significant Code Enhancements
 
 - New `VideoPipeline` class: Pipeline class for video input. 
 
@@ -296,7 +333,7 @@ For the video stream lane detection, I started from the code base for image lane
 
 - A series of visualization helper routines were written to research and tune the proper thresholding levels to be used in  dynamic frame thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
 
-### Dynamic Frame Thresholding
+#### Dynamic Binary Thresholding
 
  For binary thresholding of individual video frames, a dynamic thresholding approach was taken. Instead of a static thresholding method, the thresholding method used in each frame is determined based on the mean RGB and  average values of each frame extracted from the RGB and HLS images.
 
@@ -329,14 +366,14 @@ Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspectiv
 </p>
 
 
-### Assessment of detected lane pixels
+#### Assessment of detected lane pixels
 `assess_lane_detections()` (lines 412-532 of `classes/videopipeline.py`) assesses the detected non-zero pixels detected in the binary thresholded image. It examines counts and ratios of the overall image as well as individual status for pixels detected for each lane.
 
-#### Lane-level assessments:
+##### Lane-level assessments:
 - absolute count of non-zero pixels detected for each lane
 - ratio of detected non-zero pixels to total pixels in lane search region
 
-#### Frame-level checks:
+##### Frame-level checks:
 - ratio of non-zero pixels to total pixels in image 
 - ratio of detected non-zero pixels to total non-zero pixels in image 
 - ratio of detected non-zero pixels to total non-zero pixels in search regions 
@@ -352,8 +389,8 @@ Pixel ratio analysis of video frames
 </p>
 
 
-### Assessment of Fitted Polynomials
-`assess_fitted_polynomials()` (lines 536-532 of classes/videopipeline.py) takes results of the detected pixels assessment (above) and other information related to the frame being processed, and makes a final determination whether to accept or reject the fitted polynomials. 
+#### Assessment of Fitted Polynomials
+`assess_fitted_polynomials()` (lines 536-532 of `classes/videopipeline.py`) takes results of the detected pixels assessment (above) and other information related to the frame being processed, and makes a final determination whether to accept or reject the fitted polynomials. 
 
 Based on the quality of the detected pixels in the image and fitted polynomials, the color of the inter-lane overlay is set to green, yellow, or red. 
 
@@ -364,7 +401,7 @@ Based on the quality of the detected pixels in the image and fitted polynomials,
 
 Examples of these overlays can be seen in the hard challenge video output.
 
-### Dynamic adjustment of perspective transformation points
+#### Dynamic adjustment of perspective transformation points
 Another part that was added during the work on the harder challenge video was the dynamic change of perspective transformation points. As we encounter curves in the road, the points selected for the perspective transformation drift away from the lanes we aim to detect, and we end up detecting other artifacts. To address this I implemented dynamic realignment of the perspective transformation points. This code for this is in `adjust_RoI_window` (lines 800-900 in ./classes/videopipeline.py).  
 
 After each reliable lane detection we taken the top and bottom points on each lane and calculate the difference between them and the perspective transformation points. If the horizontal difference (along x axis) is larger than a preset threshold (`OFF_CENTER_ROI_THRESHOLD`) we adjust the source transformation points. This will be applied on the next and subsequent frames. Since we adjust the perspective transformation, we also set a flag to apply the sliding window detection algorithm on the next video frame. 
@@ -396,14 +433,36 @@ After each reliable lane detection we taken the top and bottom points on each la
 
 <br>
 
-## Discussion 
+## Discussion     
 
-I have discussed a number of approaches take to address more challenging conditions in the previous section. Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+In this section we discuss the approach taken in various phases of the project, challenges faced, and how these challenges were addressed. We will focus on the image and video lane detection, as the camera calibration portion was relatively straight-forward. 
 
-In this section we touch on various challenges faced during the implementation of this project, and how each was addressed.
+I have discussed a number of approaches taken to address the video lane detection requirements as well as more challenging scene conditions in the previous section. 
+<!-- Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.   -->
 
-* #### Thresholding of the warped image
-Generally in the detection process we first apply binary thresholding and warp (apply perspective transformation ) afterwards. 
+
+#### General Approach - Image detection pipeline
+
+For image lane detection, an incremental code buildup approach was taken. 
+
+The main work focused on building a basic detection pipeline and implementing the various processes required for the pipeline. A considerable amount of time was spent on identifying basic varying scene conditions. These varying conditions led to building a robust thresholding process (`apply_thresholds()` in `common/sobel.py`) that allows the application of multiple thresholding methods.  Various detection controls were parameterized, which allow testing and fine tuning the various detection processes.
+
+
+
+A substantial number of helper routines were written visualize the results of the detection process at various points in the algorithm. For example, the `PlotDisplay` class (`classes/plotdisplay.py `). An instance of this class allows us to display a varying number of plots together without concerns about the necessary setups required for each individual plot.
+
+#### General Approach - Video detection pipeline
+
+During the image detection phase of the project, I did not implement a `Line` class to contain and organize the detected lane date and methods. This resulted in duplication of a number of functions that had to be rewritten during the video detection phase to use `Line` instances. 
+
+For example, the original `sliding_window_detection_v1()` written for the image pipeline was duplicated for the video pipeline. I have refactored some of these duplicate functions but have left other due to the delays in submitting my project. I plan to refactor and consolidate these routines after project submission. 
+
+The video detection process was able to successfully detect the basic project video easily. some minor challenges arised while attempting to process the challenge video. 
+
+The main challenges were in successfully processing the harder_challenge video. It was this processing this video that brought about the more complex changes and additions to the video pipeline process. 
+
+##### Thresholding of the perspective transformed images
+Generally in the detection process we first apply binary thresholding and warp (apply perspective transformation) afterwards. 
 
 I also experimented with the reverse order, that is, first warping the video frame, and applying binary thresholding to the warped image. In the case of the challenge videos, this actually provided very good results when the normal process encountered difficulties in lane detection due to various artifacts present in the image.
 
@@ -420,30 +479,51 @@ Binary Thresholding results using different processing orders. Left Column: Pers
 </p>
 
 
-* #### Lane detection under adverse conditions 
-One of the main challenges in video lane detection was adapting our algorithm for roubstness towards varying road surface conditions, driving conditions, and road/scene lighting conditions. 
+#### Lane detection under adverse conditions 
+One of the main challenges during the video lane detection process was adapting our algorithm for robustness towards varying road surface conditions, and extreme scene lighting conditions. 
 
-For the original project video,  two level conditional thresholding was introduced, where each frame was categorized based on each frame's saturation conditions, and appropriate threshold levels were used for binary thresholding. 
+For the challenge video, a relatively simple two-level conditional thresholding was introduced where each frame was categorized based on each frame's saturation conditions, and appropriate threshold levels were used for binary thresholding. 
 
-As the focused shifted towards the more challenging videos, the simple two level thresholding scheme was no longer sufficient, so the conditional thresholding algorithm was expanded to cover multiple lighting conditions, as describe in the video pipeline section.
+For the harder challenge video, the simple two level thresholding scheme was no longer sufficient, and the conditional thresholding algorithm was expanded to achieve robustness towards  multiple lighting conditions, as describe in the video pipeline section.
 
-Another issue was correctly recognizing lane makers when the surface has other confusing artifacts that can be easily confused with lane markers. For this we introduced lane detection quality, control which determined if the algorithm has enough certainty in the quality of the detections. 
+Another issue was correctly recognizing lane markers when the road surface had other artifacts that could be easily confused with lane markers. To address this, we introduced detected lane quality assessment, which used simple statistical properties (which are also parameterized and adjustable) to verify whether the algorithm has been able to provide a valid, dependable connection. 
 
-* #### Lane continuation
 
-Another challenge is issue of continuing the lane display if detection is unsuccessful for one or more video frames. In these situations the algorithm must be able to display lane detections as long as it possibly can. 
+ #### Lane continuation and detection history
+
+Another challenge was continuing the lane display if lane detection was unsuccessful for one or more video frames. In these situations, we expect the pipeline to fallback on previous detection information to display lane detections as long as it possibly can. 
 
 To this goal we maintain a history of detected lane information (fitted polynomials, x/y coordinates, etc...). If the detection algorithm is unable to predict one or both lanes with a minimum level of confidence, it will revert to the kept history to provide an estimated lane detection. If the algorithm is unable to confidently detect lanes for a number of frames, the color in the inter-lane region is changed from green to yellow and eventually red to indicate the reduced quality of lane detections. 
 
+One important point is the length of the lane detection history. In each frame a "best_fit" polynomial is computed based on the average of the most recent polynomial fit and the  best_fit polynomial history. 
 
-* #### Challenging scenarios when lane detection may fail.  What could be done to make it more robust?
+In the for the project and  challenge video a history of around eight frames proved to be robust to smoothen out any non-detected frame or swings in the fitted polynomial. 
+
+However, this history length proved problematic when processing the harder challenge video. This was due to the rapid and successive twists and turns in the road, which in essence would render detection information from older frames less important. I attempted to use a weighted averaging among the history which did not yield satisfactory results. In the end, I used a shorter history for computing the best_fit polynomial in the harder challenge video. 
+
+Another possible option to address this would be to allow a dynamic selection of the number of previous fitted polynomials to be used during the best_fit polynomial computation. This could possibly be tied to road conditions such as radius of curvature history. as the radius decreases - meaning a sharper curve in the road - the algorithm could reduce the number of previous fits in the best-fit polynomial computation. 
+
+
+
+
+ #### Challenging scenarios when lane detection may fail.  What could be done to make it more robust?
 
 Under extremely over- or under-saturated conditions as some intervals in the harder challenging video, line detection fails due to the absence of any discernable lane in the image. Additionally in adverse weather conditions where the road surface is covered with ice or snow, or blizzard conditions where visibility is severely reduced, our algorithm will fail to detect lane markers.
 
 To improve robustness more sophisticated lane continuation approaches should be considered, where in addition to the detection history other factors such as close-by vehicles, sign postings and traffic lights, and road surface vs. non-road surface segmentation are take into account. A learning algorithm could be trained to determine optimal threshold parameters based on the image color level, hue and saturation characteristics. 
 
-## Appendix
-#### Computation of lane curvatures
+
+## Conclusion
+
+For me this project was an extremely enlightening experience. I spent more than %60 of my time on implementing and testing various approaches to achieve very good lane detection results on the **harder_challenge_video** .  
+
+The project It allowed me to reflect on the various difficulties we face when attempting to use classical computer vision techniques for challenging vision tasks. Many of such solutions  revert to hand-crafted and elaborately fine-tuned feature detection/extraction algorithms which while may be sufficient enough for one task (e.g. project video0) require additional crafting and fine-tuning for slightly different tasks (e.g. the harder challenge video).
+
+This is one of the main advantages of deep learning based solutions: removing the tedious task of feature selection and extraction from the shoulders of the computer vision practitioner.
+
+<br>
+### Appendicies
+#### A - Computation of lane curvatures
 
 As mentioned in the course material, our polynomial fitting process fits the <img src="https://latex.codecogs.com/gif.latex?(x,y)" title="(x,y)" /> of detected pixels, solving for <img src="https://latex.codecogs.com/gif.latex?f(y)" title="f(y)" />, determining the coefficients for the following function.
 
@@ -528,6 +608,36 @@ def get_radius(self, fit_parms = None, y_eval = 0, debug = False):
         cur_radius = np.clip(cur_radius, 0, 6000).tolist()
         
         return np.round(cur_radius,2) 
-
-
 ```
+<br>
+
+As mentioned previously, for lane detection on **images**, radius of curvature is calculated in  <code class=redcode>calculate_radius()</code> (`common/imagepipeline.py`, lines 720-730):
+
+
+```python
+def calculate_radius(y_eval, fit_coeffs, units, MX_denom = 700, MY_denom = 720, debug = False):
+    MY = 30/MY_denom # meters per pixel in y dimension
+    MX= 3.7/MX_denom # meters per pixel in x dimension
+    A,B,_ = fit_coeffs   
+    if units == 'm':
+        A = (A * MX)/ (MY**2)
+        B = (B * MX/MY)
+    
+    return  ((1 + ((2*A*(y_eval*MY))+B)**2)** 1.5)/np.absolute(2*A) 
+```
+
+[//]: # (Image References)
+<!-- [image1]: ./examples/undistort_output.png "Undistorted"
+[image2]: ./test_images/test1.jpg "Road Transformed"
+[image3]: ./examples/binary_combo_example.jpg "Binary Example"
+[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
+[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
+[image6]: ./examples/example_output.jpg "Output"
+[video1]: ./project_video.mp4 "Video"
+[image01]: ./camera_cal/calibration1.jpg "calibration1 image"
+[image02]: ./camera_cal/calibration4.jpg "calibration4"
+[image03]: ./camera_cal/calibration5.jpg "calibration5"
+[image04]: ./writeup_images/detectcorners2.png "detectcorner2"
+[image05]: ./writeup_images/detectcorners3.png "detectcorner3"
+[image06]: ./writeup_images/undistorted2.png "undistorted2"
+[image07]: ./writeup_images/undistorted3.png "undistorted3" -->

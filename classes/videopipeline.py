@@ -12,7 +12,7 @@ import copy
 import winsound 
 from collections import deque, defaultdict
 from classes.line import Line
-from classes.plotting import PlotDisplay
+from classes.plotdisplay import PlotDisplay
 from common.utils import (sliding_window_detection  , polynomial_proximity_detection, 
                           offCenterMsg      , curvatureMsg      , colorLanePixels   , displayPolynomial      , displayRoILines,  
                           displayDetectedRegion   , displayText , displayGuidelines , displayPolySearchRegion, 
@@ -254,12 +254,12 @@ class VideoPipeline(object):
         
         rc1     = True
         while self.inVideo.currFrameNum < toFrame  and rc1:    
-            rc1 =  self.inVideo.getNextFrame(displayResults = self.displayResults,
-                                             displayFittingInfo = self.displayFittingInfo, 
-                                             displayRealignment = self.displayRealignment,
-                                             debug = self.debug, debug2 = self.debug2, debug3 = self.debug3)
+            rc1 =  self.inVideo.getNextFrame()
             if rc1:
-                output, disp = self()
+                output, disp = self(displayResults = self.displayResults,
+                                    displayFittingInfo = self.displayFittingInfo, 
+                                    displayRealignment = self.displayRealignment,
+                                    debug = self.debug, debug2 = self.debug2, debug3 = self.debug3)
                 self.outVideo.saveFrameToVideo(output, debug = self.debug)        
 
             if show and (self.inVideo.currFrameNum % disp_interval == 0):      ##  or (110 <=Pipeline.inVideo.currFrameNum <=160) :
