@@ -443,51 +443,62 @@ To improve robustness more sophisticated lane continuation approaches should be 
 ## Appendix
 #### Computation of lane curvatures
 
-As mentioned in the course material, our polynomial fitting process fits the $(x,y)$ of detected pixels, solving for \(f(y)\), determining the coefficients for the following function.
+As mentioned in the course material, our polynomial fitting process fits the \((x,y)
+\) of detected pixels, solving for \(f(y)\), determining the coefficients for the following function.
 
-<!-- $$ \large f(y) = x = Ay^2 + By + C $$ --> 
-
-<div align="center"><img src="https://render.githubusercontent.com/render/math?math="></div>
-
-
+<!-- $$ f(y) = x = Ay^2 + By + C $$ 
+ -->
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=f(y)&space;=&space;x&space;=&space;Ay^2&space;&plus;&space;By&space;&plus;&space;C" target="_blank"><img src="https://latex.codecogs.com/gif.latex?f(y)&space;=&space;x&space;=&space;Ay^2&space;&plus;&space;By&space;&plus;&space;C" title="f(y) = x = Ay^2 + By + C" /></a>
+</p>
 
 The radius of the curvature is defined as:
 
-```math
- \Large R_{curve} = \frac{{[1+ {(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|}
- ```
+<!-- $$  R_{curve} = \frac{{[1+ {(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|}
+$$ -->
 
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=R_{curve}&space;=&space;\frac{{[1&plus;&space;{(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?R_{curve}&space;=&space;\frac{{[1&plus;&space;{(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|}" title="R_{curve} = \frac{{[1+ {(\frac{dx}{dy})}^2]}^{\frac{3}{2}}}{|\frac{d^2x}{dy^2}|}" /></a>
+</p>
 where :
 
-```math
- \large\frac{dx}{dy} = f'(y) = 2Ay+B \qquad \qquad \frac{d^2x}{dy^2} = f''(y) = 2A
- ```
-
+<!-- $$$ \large\frac{dx}{dy} = f'(y) = 2Ay+B \qquad \qquad \frac{d^2x}{dy^2} = f''(y) = 2A $$$ -->
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=\large\frac{dx}{dy}&space;=&space;f'(y)&space;=&space;2Ay&plus;B&space;\qquad&space;\qquad&space;\frac{d^2x}{dy^2}&space;=&space;f''(y)&space;=&space;2A" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\large\frac{dx}{dy}&space;=&space;f'(y)&space;=&space;2Ay&plus;B&space;\qquad&space;\qquad&space;\frac{d^2x}{dy^2}&space;=&space;f''(y)&space;=&space;2A" title="\large\frac{dx}{dy} = f'(y) = 2Ay+B \qquad \qquad \frac{d^2x}{dy^2} = f''(y) = 2A" /></a>
+</p>
 
 Therefore the radius of curvature can be computed as :
 
-```math
- \large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|} 
- ```
+<!-- $$  \large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}  $$ -->
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=\large&space;R_{curve}&space;=&space;\frac{{[1&plus;&space;f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\large&space;R_{curve}&space;=&space;\frac{{[1&plus;&space;f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}" title="\large R_{curve} = \frac{{[1+ f'(y)^2]}^{\frac{3}{2}}}{|2f''(y)|}" /></a>
+</p>
 
-Note that the $C$ coefficient has no effect on the radius of the curvature.
+Note that the \(C\) coefficient has no effect on the radius of the curvature.
 Considering that the (x, y) coordinates used in polynomal fitting are in pixels, and we want to display the radius of curvature in meters, we convert the equation into meters by replacing $x_{pixel}$ and $y_{pixel}$ with $x_{meter}$ and $y_{meter}$:
 
-```math
-\qquad \qquad \qquad \large x_{pixel} = \frac{x_{meter}}{MX}  \qquad \qquad  y_{pixel} = \frac{x_{meter}}{MY}
-```
+<!-- $$ \qquad \qquad \qquad \large x_{pixel} = \frac{x_{meter}}{MX}  \qquad \qquad  y_{pixel} = \frac{x_{meter}}{MY} $$ -->
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=\qquad&space;\qquad&space;\qquad&space;\large&space;x_{pixel}&space;=&space;\frac{x_{meter}}{MX}&space;\qquad&space;\qquad&space;y_{pixel}&space;=&space;\frac{x_{meter}}{MY}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\qquad&space;\qquad&space;\qquad&space;\large&space;x_{pixel}&space;=&space;\frac{x_{meter}}{MX}&space;\qquad&space;\qquad&space;y_{pixel}&space;=&space;\frac{x_{meter}}{MY}" title="\qquad \qquad \qquad \large x_{pixel} = \frac{x_{meter}}{MX} \qquad \qquad y_{pixel} = \frac{x_{meter}}{MY}" /></a>
+</p>
 
 The polynomial becomes:
 
-```math
+<!-- ```math
  \large \frac{x_{meter}}{MX} = A{(\frac{y_{meter}}{MY})}^2 + B(\frac{y_{meter}}{MY}) + C
- ```
+ ``` -->
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=\large&space;\frac{x_{meter}}{MX}&space;=&space;A{(\frac{y_{meter}}{MY})}^2&space;&plus;&space;B(\frac{y_{meter}}{MY})&space;&plus;&space;C" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\large&space;\frac{x_{meter}}{MX}&space;=&space;A{(\frac{y_{meter}}{MY})}^2&space;&plus;&space;B(\frac{y_{meter}}{MY})&space;&plus;&space;C" title="\large \frac{x_{meter}}{MX} = A{(\frac{y_{meter}}{MY})}^2 + B(\frac{y_{meter}}{MY}) + C" /></a>
+</p>
 
-solving for $x_{meter}$:
+solving for \(x_{meter}\):
 
-```math
-\large  x_{meter} = {(A*\frac{MX}{MY^2})}y_{meter}^2 + (B*\frac{MX}{MY})y_{meter} + C 
-```
+<!-- $$ \large  x_{meter} = {(A*\frac{MX}{MY^2})}y_{meter}^2 + (B*\frac{MX}{MY})y_{meter} + C $$ -->
+<p align="center">
+<a href="https://www.codecogs.com/eqnedit.php?latex=\large&space;x_{meter}&space;=&space;{(A*\frac{MX}{MY^2})}y_{meter}^2&space;&plus;&space;(B*\frac{MX}{MY})y_{meter}&space;&plus;&space;C" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\large&space;x_{meter}&space;=&space;{(A*\frac{MX}{MY^2})}y_{meter}^2&space;&plus;&space;(B*\frac{MX}{MY})y_{meter}&space;&plus;&space;C" title="\large x_{meter} = {(A*\frac{MX}{MY^2})}y_{meter}^2 + (B*\frac{MX}{MY})y_{meter} + C" /></a>
+</p>
+
+
 
 And we use the \(R_{curve}\) defined above to compute the radius in meters.
 
