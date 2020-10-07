@@ -752,10 +752,12 @@ def sliding_window_detection(binary_warped, LLane, RLane, **kwargs):
         print(' Prev-1   X Base Left      : {}  right: {}'.format(LLane.x_base[-1], RLane.x_base[-1]))
         print()
 
+    ##------------------------------------------------------------------------------------------------
     # Take a histogram of the bottom half of the image    
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the -left and right lines
     # if previous starting points do not exist 
+    ##------------------------------------------------------------------------------------------------
 
     histLeft  = max(img_width//2 - histWidthRange, 0)  
     histRight = min(img_width//2 + histWidthRange, img_width)  
@@ -767,7 +769,10 @@ def sliding_window_detection(binary_warped, LLane, RLane, **kwargs):
     histogram = np.pad(histogram, (histLeft, binary_warped.shape[1]-histRight))
     midpoint  = np.int(histogram.shape[0]//2)
 
-
+    ##------------------------------------------------------------------------------------------------
+    # If a reset of the lane base points is necessary they are reset based on results ftom the 
+    # pixel histogram. Otherwise, they are set to the base points of the previous frame
+    ##------------------------------------------------------------------------------------------------
     # if (LLane.x_base == 0) and (RLane.x_base == 0):
     if reset_search_base:
         if debug:
@@ -783,7 +788,7 @@ def sliding_window_detection(binary_warped, LLane, RLane, **kwargs):
     
     lane_distance = win_xright_center - win_xleft_center
     
-    ##-------------------------------------------------------------------------------------------------
+    ##------------------------------------------------------------------------------------------------
     ## Reset Pixels per Meter conversion factor to match detected lanes 
     ##------------------------------------------------------------------------------------------------
     # LLane.set_MX(LLane.MX_nom, rightx_base - leftx_base, debug = False)
@@ -818,7 +823,7 @@ def sliding_window_detection(binary_warped, LLane, RLane, **kwargs):
         print('| Win |  Y range  | Frm   cntr   To | X idxs | Y idxs | Pixels |  Cntr Chg  | Frm    cntr    To  | X idxs | Y idxs | Pixels |    Ctr Chg   |')
         print('-'*140)
 
-    ### TO-DO: Find the four below boundaries of the window ###
+    # Find the four below boundaries of the window ###
     win_xleft_low   = win_xleft_center  - Left_lower_margin   
     win_xleft_high  = win_xleft_center  + Left_higher_margin  
     win_xright_low  = win_xright_center - Right_lower_margin        

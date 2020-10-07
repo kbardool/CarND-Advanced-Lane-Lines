@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 import pprint 
 import copy 
 import winsound 
+from tqdm import tqdm, trange
 from collections import deque, defaultdict
+from datetime import datetime
 from classes.line import Line
 from classes.plotdisplay import PlotDisplay
 from common.utils import (sliding_window_detection  , polynomial_proximity_detection, 
@@ -45,8 +47,8 @@ class VideoPipeline(object):
         self.mode                       = kwargs.get('mode'                 ,    1)
         self.POLY_DEGREE                = kwargs.get('poly_degree'          ,    2)
         self.MIN_POLY_DEGREE            = kwargs.get('min_poly_degree'      ,    2)
-        self.MIN_X_SPREAD               = kwargs.get('min_x_spread', 90)
-        self.MIN_Y_SPREAD               = kwargs.get('min_y_spread', 350)
+        self.MIN_X_SPREAD               = kwargs.get('min_x_spread'         ,   90)
+        self.MIN_Y_SPREAD               = kwargs.get('min_y_spread'         ,  350)
 
 
         self.HISTORY                    = kwargs.get('history'              ,    8)
@@ -80,20 +82,21 @@ class VideoPipeline(object):
         self.HISTOGRAM_SEARCH_RANGE   = (self.camera_x - self.HISTOGRAM_WIDTH_RANGE, self.camera_x + self.HISTOGRAM_WIDTH_RANGE)
 
         ## Thresholding Parameters 
-        self.HIGH_RGB_THRESHOLD       = kwargs.get('high_rgb_threshold'   ,  180)   # 220
-        self.MED_RGB_THRESHOLD        = kwargs.get('med_rgb_threshold'    ,  180)   # 175   ## chgd from 110 2-26-20
-        self.LOW_RGB_THRESHOLD        = kwargs.get('low_rgb_threshold'    ,  100)   # 175   ## chgd from 110 2-26-20
-        self.VLOW_RGB_THRESHOLD       = kwargs.get('vlow_rgb_threshold'   ,   35)   # 175   ## chgd from 110 2-26-20
+        self.HIGH_RGB_THRESHOLD       = kwargs.get('high_rgb_threshold'   , 255) #  180)   # 220
+        self.MED_RGB_THRESHOLD        = kwargs.get('med_rgb_threshold'    , 255) #  180)   # 175   ## chgd from 110 2-26-20
+        self.LOW_RGB_THRESHOLD        = kwargs.get('low_rgb_threshold'    , 255) #  100)   # 175   ## chgd from 110 2-26-20
+        self.VLOW_RGB_THRESHOLD       = kwargs.get('vlow_rgb_threshold'   , 255) #   35)   # 175   ## chgd from 110 2-26-20
 
-        self.XHIGH_SAT_THRESHOLD      = kwargs.get('xhigh_sat_threshold'  ,  120)   # 150
-        self.HIGH_SAT_THRESHOLD       = kwargs.get('high_sat_threshold'   ,   65)   # 150
-        self.LOW_SAT_THRESHOLD        = kwargs.get('low_sat_threshold'    ,   20)   #  20   ## chgd from 110 2-26-20
+        self.XHIGH_SAT_THRESHOLD      = kwargs.get('xhigh_sat_threshold'  , 255) # 120)   # 150
+        self.HIGH_SAT_THRESHOLD       = kwargs.get('high_sat_threshold'   , 255) #  65)   # 150
+        self.LOW_SAT_THRESHOLD        = kwargs.get('low_sat_threshold'    , 255) #  20)   #  20   ## chgd from 110 2-26-20
 
         self.XHIGH_THRESHOLDING       = kwargs.get('xhigh_thresholding'   , 'cmb_mag_x')
         self.HIGH_THRESHOLDING        = kwargs.get('high_thresholding'    , 'cmb_mag_x')
         self.NORMAL_THRESHOLDING      = kwargs.get('med_thresholding'     , 'cmb_rgb_lvl_sat')
         self.LOW_THRESHOLDING         = kwargs.get('low_thresholding'     , 'cmb_mag_xy')
         self.VLOW_THRESHOLDING        = kwargs.get('vlow_thresholding'    , 'cmb_mag_xy')
+       
         self.HISAT_THRESHOLDING       = kwargs.get('hisat_thresholding'   , 'cmb_mag_x')
         self.LOWSAT_THRESHOLDING      = kwargs.get('lowsat_thresholding'  , 'cmb_hue_x')
         
@@ -250,10 +253,18 @@ class VideoPipeline(object):
         self.displayFittingInfo = kwargs.get('displayFittingInfo', self.displayFittingInfo)
         self.displayRealignment = kwargs.get('displayRealignment', self.displayRealignment)
 
-        print(' displayFittingInfo: ', self.displayFittingInfo, ' displayRealignment:', self.displayRealignment, '  displayResults: ', self.displayResults)
-        print('From : ', self.inVideo.currFrameNum, ' To:', toFrame)
+        if toFrame > self.inVideo.ttlFrames:
+            toFrame = self.inVideo.ttlFrames
         
+        print(' displayFittingInfo: ', self.displayFittingInfo, ' displayRealignment:', self.displayRealignment, '  displayResults: ', self.displayResults)
+        print(' Process frames : {}   to: {}   of  {} frames'.format(self.inVideo.currFrameNum, toFrame, self.inVideo.ttlFrames),  flush= True)
         rc1     = True
+        
+        # progress_bar = tqdm( range(self.inVideo.currFrameNum, toFrame),  unit=' frames ',
+                    #  initial = self.inVideo.currFrameNum)    ## , postfix={'loss':cost_np, 'acc': accuracy_np})           
+        # for i in progress_bar: 
+        # for i in trange(self.inVideo.currFrameNum, toFrame):
+
         while self.inVideo.currFrameNum < toFrame  and rc1:    
             rc1 =  self.inVideo.getNextFrame()
             if rc1:
@@ -264,13 +275,14 @@ class VideoPipeline(object):
                 self.outVideo.saveFrameToVideo(output, debug = self.debug)        
             else:
                 break
-
-            if show and (self.inVideo.currFrameNum % disp_interval == 0):      ##  or (110 <=Pipeline.inVideo.currFrameNum <=160) :
-                
-                display_two(self.prevBestFit, self.imgLanePxls, size = (15,5), 
+        
+            if (self.inVideo.currFrameNum % disp_interval == 0):
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  -  Completed {self.inVideo.currFrameNum} frames ")
+                if show :      ##  or (110 <=Pipeline.inVideo.currFrameNum <=160) :
+                    display_two(self.prevBestFit, self.imgLanePxls, size = (15,5), 
                             title1 = 'Prev best fit (Cyan: Prev fit, Yellow: New proposal)' , 
                             title2 = 'ImgLanePxls (Cyan: Prev fit, Yellow: New proposal, Fuschia: New Best Fit)' )
-                display_one(output, size= size, title = self.inVideo.frameTitle)        
+                    display_one(output, size= size, title = self.inVideo.frameTitle)        
                 
         print('Finshed - Current frame number :', self.inVideo.currFrameNum)
         return
@@ -1131,6 +1143,7 @@ class VideoPipeline(object):
         self.thresholdMethods[1]['med']    =  self.NORMAL_THRESHOLDING 
         self.thresholdMethods[1]['low']    =  self.LOW_THRESHOLDING    
         self.thresholdMethods[1]['vlow']   =  self.VLOW_THRESHOLDING    
+
         self.thresholdMethods[1]['hisat']  =  self.HISAT_THRESHOLDING  
         self.thresholdMethods[1]['lowsat'] =  self.LOWSAT_THRESHOLDING 
 
@@ -1328,6 +1341,54 @@ class VideoPipeline(object):
                         print('      thr : ', thr, '   ', self.ImageThresholds[mode][cond][thr])
 
 
+
+    def display_thresholds(self, mode = None):
+        line_length = 148
+        line_prefix = ' ' * 2
+        if mode is None:
+            mode = [self.mode]
+        if isinstance(mode, int):
+            mode = [mode]
+        print()
+
+        thrshlds = '  Thresholds:  HIGH RGB: {}    MED RGB: {}    LOW RGB: {}    VLOW RGB: {}      XHIGH SAT: {}    HIGH SAT: {}    LOW SAT: {} '.format(
+                self.HIGH_RGB_THRESHOLD , self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD, 
+                self.XHIGH_SAT_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.LOW_SAT_THRESHOLD)
+        print( line_prefix, thrshlds.center(148))
+
+        print()
+        for mod in mode:
+            print(line_prefix, '-' * line_length)
+            print(line_prefix, '| {:8s} | {:^18s} | {:^16s} | {:^16s} | {:^16s} | {:^16s} || {:^16s} | {:^16s} |'.format('',
+            'PL[X-High]','PL[High]','PL[Med]','PL[Low]','PL[VLow]','PL[HiSat]','PL[LoSat]'))
+
+            print(line_prefix, '| {:8s} | RGB>{:<3d} or SAT>{:<3d} |{:>4d} > RGB > {:<4d} |{:>4d} > RGB > {:<4d} |{:>4d} > RGB > {:<4d} |'\
+                  '     RGB < {:<4d}   ||    SAT > {:<4d}    |    SAT < {:<4d}    |'.format('', self.HIGH_RGB_THRESHOLD, self.XHIGH_SAT_THRESHOLD, 
+            self.HIGH_RGB_THRESHOLD, self.MED_RGB_THRESHOLD,   self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD ,
+            self.LOW_RGB_THRESHOLD , self.VLOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.LOW_SAT_THRESHOLD))
+            
+            print(line_prefix, '-' * line_length)
+            print(line_prefix, '| Mode{:2d}   : {:^18s} | {:^16s} | {:^16s} | {:^16s} | {:^16s} || {:^16s} | {:^16s} |'.format(mod,
+                        self.thresholdMethods[mod]['xhigh'], self.thresholdMethods[mod]['high'], 
+                        self.thresholdMethods[mod]['med']  , self.thresholdMethods[mod]['low'], 
+                        self.thresholdMethods[mod]['vlow'] , self.thresholdMethods[mod]['hisat'], self.thresholdMethods[mod]['lowsat']))
+            
+            print(line_prefix, '-' * line_length)
+
+            for ke in self.ImageThresholds[mod]['xhigh'].keys():
+                print(line_prefix, '| {:8s} : {:^18s} | {:^16s} | {:^16s} | {:^16s} | {:^16s} || {:^16s} | {:^16s} |'.format(ke, 
+                    str(self.ImageThresholds[mod]['xhigh'][ke]) ,                                                                                                                              
+                    str(self.ImageThresholds[mod]['high'][ke])  , 
+                    str(self.ImageThresholds[mod]['med'][ke])   , 
+                    str(self.ImageThresholds[mod]['low'][ke])   , 
+                    str(self.ImageThresholds[mod]['vlow'][ke])  , 
+                    str(self.ImageThresholds[mod]['hisat'][ke]), 
+                    str(self.ImageThresholds[mod]['lowsat'][ke]) 
+                ))    
+            print(line_prefix, '-' * line_length)
+            print()
+        return 
+
     ##--------------------------------------------------------------------------------------
     ##
     ##--------------------------------------------------------------------------------------
@@ -1449,49 +1510,6 @@ class VideoPipeline(object):
     def debugInfo_RoITransforms(self):
         self.debugInfo_srcPointsRoI(title= 'source points prior to realignment')
         self.debugInfo_newSrcPointsRoI()
-        return 
-
-
-    def display_thresholds(self, mode = None):
-        if mode is None:
-            mode = [self.mode]
-        if isinstance(mode, int):
-            mode = [mode]
-        print()
-
-        print( ' Thresholds:  HIGH RGB: {}    MED RGB: {}   LOW RGB: {}  VLOW RGB: {}   XHIGH SAT: {}   HIGH SAT: {}   LOW SAT: {} '.format(
-                self.HIGH_RGB_THRESHOLD , self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD, self.VLOW_RGB_THRESHOLD, 
-                self.XHIGH_SAT_THRESHOLD, self.HIGH_SAT_THRESHOLD, self.LOW_SAT_THRESHOLD))
-
-        print()
-        for mod in mode:
-            print('','-'*150)
-            print(' | {:8s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format('',
-            'PL[X-High]','PL[High]','PL[Med]','PL[Low]','PL[VLow]','PL[HiSat]','PL[LoSat]'))
-
-            print(' | {:8s} | RGB> {:<3d} or SAT > {:<3d}|  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |  {:>5d} > RGB > {:<5d} |'\
-            ' {:>8s} > {:<9d} | {:>8s} > {:<9d} |'.format('', self.HIGH_RGB_THRESHOLD, self.XHIGH_SAT_THRESHOLD, 
-            self.HIGH_RGB_THRESHOLD, self.MED_RGB_THRESHOLD,   self.MED_RGB_THRESHOLD , self.LOW_RGB_THRESHOLD ,
-            self.LOW_RGB_THRESHOLD , self.VLOW_RGB_THRESHOLD, 'SAT', self.HIGH_SAT_THRESHOLD, 'SAT', self.LOW_SAT_THRESHOLD))
-            print('','-'*150)
-            print(' | Mode{:2d}   : {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format(mod,
-                        self.thresholdMethods[mod]['xhigh'], self.thresholdMethods[mod]['high'], 
-                        self.thresholdMethods[mod]['med']  , self.thresholdMethods[mod]['low'], 
-                        self.thresholdMethods[mod]['vlow'] , self.thresholdMethods[mod]['hisat']))
-            print('','-'*150)
-
-            for ke in self.ImageThresholds[mod]['xhigh'].keys():
-                print(' | {:8s} : {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} | {:^20s} |'.format(ke, 
-                    str(self.ImageThresholds[mod]['xhigh'][ke]) ,                                                                                                                              
-                    str(self.ImageThresholds[mod]['high'][ke])  , 
-                    str(self.ImageThresholds[mod]['med'][ke])   , 
-                    str(self.ImageThresholds[mod]['low'][ke])   , 
-                    str(self.ImageThresholds[mod]['vlow'][ke])  , 
-                    str(self.ImageThresholds[mod]['hisat'][ke]), 
-                    str(self.ImageThresholds[mod]['lowsat'][ke]) 
-                ))    
-            print('','-'*150)
-            print()
         return 
 
 

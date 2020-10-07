@@ -465,7 +465,7 @@ class Line():
 
         if debug: 
             print(' set_best_fit()')
-            print('   Previous best fit      : ', self.best_fit_history[-2])
+            print('   Previous best fit      : ', self.best_fit_history[-2] if len(self.best_fit_history) > 1 else 'N/A')
             print('   New best fit           : ', self.best_fit_history[-1], '  ' , self.best_fit)
             print('   best_fit_history       : ', len(self.best_fit_history))
             print('   best RSE(current,best) : ', self.RSE, '   best avg_RSE: ', self.prev_avg_RSE, ' new best avg RSE:', self.avg_RSE) 

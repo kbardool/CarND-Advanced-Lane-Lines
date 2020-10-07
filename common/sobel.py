@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 # import matplotlib.image as mpimg
-from classes.plotting import PlotDisplay
+from classes.plotdisplay import PlotDisplay
 from .utils import get_ax, display_one, display_two, display_multi
 deg2rad = lambda  x: x * np.pi/180
 rad2deg = lambda  x: x * 180 / np.pi
