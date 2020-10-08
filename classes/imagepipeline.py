@@ -5,7 +5,7 @@ import matplotlib.image as mpimg
 from   matplotlib import colors
 from common.sobel           import apply_image_thresholds, perspectiveTransform
 from common.utils           import (display_one, display_two, displayRoILines, displayText, displayGuidelines)
-# from common.utils           import (sliding_window_detection_v1, colorLanePixels_v1, fit_polynomial_v1, displayPolynomial_v1,
+# from common.utils         import (sliding_window_detection_v1, colorLanePixels_v1, fit_polynomial_v1, displayPolynomial_v1,
 #                                     plot_polynomial_v1 , displayDetectedRegion_v1, curvatureMsg_v1, offCenterMsg_v1)
                                
 from classes.plotdisplay import PlotDisplay
@@ -183,11 +183,14 @@ class ImagePipeline(object):
         if not displayResults:
             print(' Display results is fasle!')
 
-        ###----------------------------------------------------------------------------------------------
+        ###---------------------------------------------------------------------------
         ###  Remove camera distortion and apply perspective transformation
-        ###----------------------------------------------------------------------------------------------
+        ###---------------------------------------------------------------------------
         imgUndist = self.camera.undistortImage(imgInput)
 
+        ###---------------------------------------------------------------------------
+        ###  Remove camera distortion and apply perspective transformation
+        ###---------------------------------------------------------------------------
         imgWarped, M, Minv = perspectiveTransform(imgUndist, src_points, dst_points, debug = False)
 
 
@@ -202,11 +205,21 @@ class ImagePipeline(object):
         imgThrshld = imgThrshldDict[thresholdKey]  
 
         ##----------------------------------------------------------------------------
-        ## Apply Persepective Transformation
+        ## Apply Perspective Transformation on binary thresholded image
         ##----------------------------------------------------------------------------
         imgThrshldWarped, M, Minv = perspectiveTransform(imgThrshld, src_points, dst_points, debug = True)
 
 
+        ###----------------------------------------------------------------------------------------------
+        ### Mode 2: 
+        ###  Warp image first, then apply thresholding 
+        ###----------------------------------------------------------------------------------------------
+        imgWarpedThrshldDict = apply_image_thresholds(imgWarped, ksize=ksize, 
+                                                    x_thr = x_thr2 , y_thr   = y_thr2, 
+                                                    mag_thr = mag_thr, dir_thr = dir_thr,
+                                                    sat_thr = sat_thr, debug   = False)
+
+        imgWarpedThrshld = imgWarpedThrshldDict[thresholdKey]
 
         ###----------------------------------------------------------------------------------------------
         ### Display thresholded image before and after Perspective transform WITH RoI line display
@@ -240,16 +253,7 @@ class ImagePipeline(object):
         # print('imgMaskedWarpedDbg shape:', imgMaskedWarpedDbg.shape, imgMaskedWarpedDbg.min(), imgMaskedWarpedDbg.max())
         # display_two(imgMaskedDbg  , imgMaskedWarpedDbg, title1 = 'imgMaskedDebug',title2 = ' imgMaskedWarpedDebug', winttl = filename[0])
 
-        ###----------------------------------------------------------------------------------------------
-        ### Mode 2: 
-        ###  Warp image first, then apply thresholding 
-        ###----------------------------------------------------------------------------------------------
-        imgWarpedThrshld  = apply_image_thresholds(imgWarped, ksize=ksize, ret = thresholdKey,
-                                                    x_thr = x_thr2 , y_thr   = y_thr2, 
-                                                    mag_thr = mag_thr, dir_thr = dir_thr,
-                                                    sat_thr = sat_thr, debug   = False)
 
-        # imgWarpedThrshld = imgWarpedThrshldDict[thresholdKey]
 
         ################################################################################################
         ### Select image we want to process further 
@@ -265,41 +269,50 @@ class ImagePipeline(object):
 
 
         ###----------------------------------------------------------------------------------------------
-        ### Display thresholded image befoire and after Perspective transform WITHOUT RoI line display
-        ### Display undistorted color image & perpective transformed image -- WITHOUT RoI line display
+        ### Display input image and intermediate results.
         ###----------------------------------------------------------------------------------------------
         if displayResults:
-            ###----------------------------------------------------------------------------------------------
-            ### Display undistorted color image & perpective transformed image -- With RoI line display
-            ###----------------------------------------------------------------------------------------------
-            imgRoI             = displayRoILines(imgUndist, src_points_list, thickness = 2)
-            imgRoIWarped, _, _ = perspectiveTransform(imgRoI , src_points, dst_points, debug = False)
-            imgRoIWarped       = displayRoILines(imgRoIWarped, dst_points_list, thickness = 2, color = 'green')
-            # print('imgRoI shape       :', imgRoI.shape, imgRoI.min(), imgRoI.max())
-            # print('imgRoIWarped shape       :', imgRoIWarped.shape, imgRoIWarped.min(), imgRoIWarped.max())
-            # print('imgUndist shape       :', imgUndist.shape, imgUndist.min(), imgUndist.max())
-            # print('imgWarped shape       :', imgWarped.shape, imgWarped.min(), imgWarped.max())
-            # print('img Thrshld Warped shape:', imgThrshldWarped.shape, imgThrshldWarped.min(), imgThrshldWarped.max())
+            # print('imgRoI shape        :', imgRoI.shape, imgRoI.min(), imgRoI.max())
+            # print('imgRoIWarped shape  :', imgRoIWarped.shape, imgRoIWarped.min(), imgRoIWarped.max())
+            # print('imgUndist shape     :', imgUndist.shape, imgUndist.min(), imgUndist.max())
+            # print('imgWarped shape     :', imgWarped.shape, imgWarped.min(), imgWarped.max())
+            # print('imgThrshldWarped    :', imgThrshldWarped.shape, imgThrshldWarped.min(), imgThrshldWarped.max())
 
+            ### Display image before and after distortion correction
             display_two(imgInput, imgUndist, 
                         title1 = 'image - Original Image',
                         title2 = 'imgUndist - Undistorted Image', winttl = filename[0])
+
+            ### Display undistorted color image & perpective transformed image -- With RoI line overlay
+            imgRoI             = displayRoILines(imgUndist, src_points_list, thickness = 2)
+            imgRoIWarped, _, _ = perspectiveTransform(imgRoI , src_points, dst_points, debug = False)
+            imgRoIWarped       = displayRoILines(imgRoIWarped, dst_points_list, thickness = 2, color = 'green')
             display_two(imgRoI  , imgRoIWarped, fontsize=17, 
                         title1 = 'imgRoI',
                         title2 = 'imgRoIWarped', winttl = filename[0])  
+
+            ### Display undistorted color image & perspective transformed image -- WITHOUT RoI line display
             display_two(imgUndist, imgThrshld, 
                         title1 = 'imgUndist - Undistorted Image',
                         title2 = 'imgThrshld - using '+thresholdKey)
                         # title2 = 'imgWarped - Undistorted and Perspective Transformed', winttl = filename[0])
+
+            ### Display binary thresholding image before and after perspective transformation 
             display_two(imgThrshld, imgThrshldWarped, 
                         title1 = 'imgThrshld - using '+thresholdKey,
                         title2 = 'imgThrshldWarped - Thresholded and Warped image ', winttl = filename[0])
+
+            ### Display undistorted image before and after perspective transformation 
             display_two(imgUndist  , imgWarped, 
                         title1 = 'imgUndist - Undistorted Image',
                         title2 = 'imgWarped - Undistorted and Perspective Transformed', winttl = filename[0])
+            
+            ### Display undistorted image before and after binary thresholding  
             display_two(imgWarped, imgWarpedThrshld,
                         title1 = 'imgWarped - Warped Image',
                         title2 = 'imgWarpedThrshld - Warped, Thresholded image', winttl = filename[0])
+            
+            ### Dispaly final results for processing mode 1 and 2.
             display_two( imgThrshldWarped, imgWarpedThrshld,
                         title1 = 'Mode 1 - Image Warped AFTER Thresholding',
                         title2 = 'Mode 2 - Image Warped BEFORE Thresholding')  
@@ -382,11 +395,11 @@ class ImagePipeline(object):
 
 
 def sliding_window_detection_v1(binary_warped, histRange = None,
-                        nwindows = 9, 
-                        window_margin = 100, 
-                        minpix   = 50,
-                        maxpix   = 99999, 
-                        debug    = False):
+                                nwindows = 9, 
+                                window_margin = 100, 
+                                minpix   = 50,
+                                maxpix   = 99999, 
+                                debug    = False):
     ''' 
     Parameters :  
     

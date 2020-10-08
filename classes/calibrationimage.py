@@ -29,10 +29,6 @@ class CalibrationImage():
             self.objectPts    = None       # 3D points from real world space
             self.imagePts     = None       # 2D points in image space       
             
-            # Rotation Vectors 
-            # self.rotationVecs = None
-            # Translation Vectors
-            # self.tranformVecs = None
             
             if debug:
                 print( '\n Image object created for ', filename, 'h x w : ', self.height, ' x ' , 
@@ -80,7 +76,7 @@ class CalibrationImage():
             print('     Object Pts(3D)  :', self.objectPts.shape )
             print(self.objectPts)
             print('     Corners Detected:', self.cornersFnd) 
-            print('self.imagePts: ', type(self.imagePts), ' \n', self.imagePts)
+            print('     self.imagePts: ', type(self.imagePts), ' \n', self.imagePts)
             print('     image Pts(2D)   :', type(self.imagePts), self.imagePts.shape if self.imagePts is not None else 'N/A')
             # print('     Corners Detected:', self.cornersFound) 
             # print(self.imagePts)

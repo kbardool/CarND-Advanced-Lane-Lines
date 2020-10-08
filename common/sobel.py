@@ -163,44 +163,6 @@ def gaussian_blur(img, kernel_size):
     """Applies a Gaussian Noise kernel"""
     return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
-"""
-def grad_abs_thresh(img_gray, orient='x', sobel_kernel=3 , thresh=(0, 255), display = False):
-    '''
-    2) Take the derivative in x or y given orient = 'x' or 'y'
-    3) Take the absolute value of the derivative or gradient
-    4) Scale to 8-bit (0 - 255) then convert to type = np.uint8
-    5) Create a mask of 1's where the scaled gradient magnitude 
-       is > thresh_min and < thresh_max
-    6) Return this mask as your binary_output image
-    '''
-    # gray = convert_to_gray(img)
-    
-    x_sobel = 1 if orient == 'x' else 0
-    y_sobel = 1 if x_sobel == 0 else 0
-    sobel = cv2.Sobel(img_gray, cv2.CV_64F, x_sobel, y_sobel, ksize = sobel_kernel)
-        
-    abs_sobel = np.absolute(sobel)
-    scaled_sobel = np.uint8(255 * abs_sobel / abs_sobel.max())
-    
-    # binary_output = np.zeros_like(scaled_sobel)
-    # binary_output[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
-
-    binary_output = ((scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])).astype(np.uint8)
-    
-    thresh_str = str(thresh)
-        
-    if display:
-        # print('sobel       : ', sobel.shape, sobel.min(), sobel.max())
-        # print('scaled_sobel: ', scaled_sobel.shape, scaled_sobel.min(), scaled_sobel.max())
-        # print('abs_sobel   : ', abs_sobel.shape, abs_sobel.min(), abs_sobel.max())    
-        print('grad_abs_thresh(): input:', img_gray.shape, ' min: ', img_gray.min(), ' max: ', img_gray.max())
-        filtered_sobel = np.copy(scaled_sobel)
-        filtered_sobel[(scaled_sobel < thresh[0]) | (scaled_sobel > thresh[1])] = 0
-        display_one(scaled_sobel  , title='scaled_sobel - orientation: '+orient+'  thresholds: '+thresh_str, cmap='jet')
-        display_one(filtered_sobel, title='filtered_sobel - orientation: '+orient+' within thresholds: '+thresh_str, cmap='jet')
-        display_one(binary_output , title='result image - orientation: '+orient+'  thresholds: '+thresh_str, cbar =True)
-    return binary_output
-"""
 
 
 def grad_x_thresh(img_gray, sobel_kernel=3 , thresh=(0, 255), display = False):
@@ -352,7 +314,7 @@ def color_thresh(img, thresh=(0, 255), channel = 0, display = False):
     
     return binary_output
 
-def RGB_thresh(img, thresh=(0, 255),  display = False):
+def RGB_OR_thresh(img, thresh=(0, 255),  display = False):
     s_channel = np.copy(img)
     red_binary   = color_thresh(s_channel, thresh = thresh, channel = 0 ,display = display)
     green_binary = color_thresh(s_channel, thresh = thresh, channel = 1, display = display)
@@ -613,7 +575,7 @@ def apply_thresholds(img,  thrshlds , **kwargs):
     if thrshlds['rgb_thr'] is None:
         results['cmb_rgb']= np.copy(empty_shape)
     else:
-        results['cmb_rgb'] = RGB_thresh(img, thresh = thrshlds['rgb_thr'])
+        results['cmb_rgb'] = RGB_OR_thresh(img, thresh = thrshlds['rgb_thr'])
 
     ## Thresholds based on the HLS color model        
 
@@ -752,7 +714,7 @@ def apply_image_thresholds(img, **kwargs ):
     if rgb_thr is None:
         results['cmb_rgb'] = np.zeros_like(results['cmb_x'])
     else:
-        results['cmb_rgb'] = RGB_thresh(img, thresh = rgb_thr)
+        results['cmb_rgb'] = RGB_OR_thresh(img, thresh = rgb_thr)
 
     ## Thresholds based on the HLS color model    
         
@@ -930,3 +892,41 @@ def apply_perspective_transform(inputs, itStr, source, dest, **kwargs ):
 
 
     
+"""
+def grad_abs_thresh(img_gray, orient='x', sobel_kernel=3 , thresh=(0, 255), display = False):
+    '''
+    2) Take the derivative in x or y given orient = 'x' or 'y'
+    3) Take the absolute value of the derivative or gradient
+    4) Scale to 8-bit (0 - 255) then convert to type = np.uint8
+    5) Create a mask of 1's where the scaled gradient magnitude 
+       is > thresh_min and < thresh_max
+    6) Return this mask as your binary_output image
+    '''
+    # gray = convert_to_gray(img)
+    
+    x_sobel = 1 if orient == 'x' else 0
+    y_sobel = 1 if x_sobel == 0 else 0
+    sobel = cv2.Sobel(img_gray, cv2.CV_64F, x_sobel, y_sobel, ksize = sobel_kernel)
+        
+    abs_sobel = np.absolute(sobel)
+    scaled_sobel = np.uint8(255 * abs_sobel / abs_sobel.max())
+    
+    # binary_output = np.zeros_like(scaled_sobel)
+    # binary_output[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
+
+    binary_output = ((scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])).astype(np.uint8)
+    
+    thresh_str = str(thresh)
+        
+    if display:
+        # print('sobel       : ', sobel.shape, sobel.min(), sobel.max())
+        # print('scaled_sobel: ', scaled_sobel.shape, scaled_sobel.min(), scaled_sobel.max())
+        # print('abs_sobel   : ', abs_sobel.shape, abs_sobel.min(), abs_sobel.max())    
+        print('grad_abs_thresh(): input:', img_gray.shape, ' min: ', img_gray.min(), ' max: ', img_gray.max())
+        filtered_sobel = np.copy(scaled_sobel)
+        filtered_sobel[(scaled_sobel < thresh[0]) | (scaled_sobel > thresh[1])] = 0
+        display_one(scaled_sobel  , title='scaled_sobel - orientation: '+orient+'  thresholds: '+thresh_str, cmap='jet')
+        display_one(filtered_sobel, title='filtered_sobel - orientation: '+orient+' within thresholds: '+thresh_str, cmap='jet')
+        display_one(binary_output , title='result image - orientation: '+orient+'  thresholds: '+thresh_str, cbar =True)
+    return binary_output
+"""
