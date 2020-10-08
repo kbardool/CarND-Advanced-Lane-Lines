@@ -337,7 +337,9 @@ Results of lane detection over images test5 & test6
 
 ## 3. Lane Detection Pipeline (video)
 
-For the video stream lane detection, I started from the code base for image lane detection. A significant number of modifications and enhancements were made to the software. A detailed explanation of all enhancements would be beyond the brevity requirements of this report, so I will only discuss the most important points:
+For the video stream lane detection, the  image detection pipeline was used as starting point for our code base. 
+
+A significant number of modifications and enhancements were made to this software. A detailed explanation of all enhancements would be beyond the brevity requirements of this report, so I will only discuss the most important points:
 
 
 #### 3.1. Code Enhancements
@@ -352,11 +354,11 @@ For the video stream lane detection, I started from the code base for image lane
 
 - A series of "debug helpers" were written to tracking, verification, and troubleshooting purposes. 
 
-- A series of visualization helper routines were written to research and tune the proper thresholding levels to be used in  dynamic frame thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
+- A series of visualization helper routines were written to assist in research and proper tuning of thresholding levels used in adaptive thresholding. For example the Hue, Level, and Saturation rates of individual video frames (more below). 
 
 #### 3.2. Adaptive Binary Thresholding
 
- For binary thresholding of individual video frames, a dynamic thresholding approach was taken. Instead of a applying a single thresholding method for all frames, the thresholding method used in each frame is determined based on the average level and saturation values of each frame converted to a HLS color space.
+ For binary thresholding of individual video frames, a dynamic thresholding approach was taken. Instead of applying a single thresholding method for all frames, the thresholding method used in each frame is selected based on the average RGB and Saturation values of the frame.
 
 The adaptive frame thresholding process for the project video was quite simple, consisting of  three conditions: `dark`, `low-saturation` and `normal`. As I worked on the more challenging videos encompassing a larger variety of lighting conditions, the number of possible categories was increased. 
 
@@ -377,7 +379,7 @@ Once a frame is categorized, its corresponding thresholding method is applied an
 
 A wide variety of color space statistics were investigated / tested in order to select the appropriate binary thresholding method and threshold levels. The statistics were visualized, allowing us to better detect significant changes in the lighting conditions. 
 
-Below are two plots from one of these experiments that plots the Hue, Level, Saturation, and Mean RGB of each frame of video clip. The horizontal axis is the frame number.
+Below are two plots from one of these experiments that plots the Hue, Level, Saturation, and Mean RGB of each frame of a given video clip. The horizontal axis is the frame number. The horizontal colored regions correspond to a RGB levels (e.g. XHigh, High,Med, etc...) 
 
 
 <p align="center">
@@ -393,7 +395,7 @@ Video analysis plots. Top: Undistorted frames  - Bottom: Frames after perspectiv
 As in the exercises, we use two methods of pixel detection.
 
 ##### Sliding Window Search
-This is the bootstrap method used on the initial video frame, as well as conditions where the algorithm determines a new bootstrap is necessary (such as **perspective transformation realignment** which is further discussed below).
+This is the bootstrap method used on the initial video frame, as well as conditions where the algorithm determines a new bootstrap is necessary (such as **perspective transformation realignment**, which is further discussed below).
 
 Section 2.6 provides more details on this method.
 
@@ -454,11 +456,12 @@ Based on the quality of the detected pixels in the image and fitted polynomials,
 
 Examples of these overlays can be seen in the hard challenge video output.
 
-#### 3.6. Dynamic readjustment of perspective transformation points
-Another part that was added during the work on the harder challenge video was the dynamic change of perspective transformation points. As we encounter curves in the road, the points selected for the perspective transformation drift away from the lanes we aim to detect, and we end up detecting other artifacts. To address this I implemented dynamic realignment of the perspective transformation points. This code for this is in `adjust_RoI_window` (lines 800-900 in ./classes/videopipeline.py).  
+#### 3.6. Dynamic Realignment of Perspective Transformation Reference Points
+Another feature that was added during the work on the **harder challenge video** was the realignment of perspective transformation points. 
 
-After each reliable lane detection we taken the top and bottom points on each lane and calculate the difference between them and the perspective transformation points. If the horizontal difference (along x axis) is larger than a preset threshold (`OFF_CENTER_ROI_THRESHOLD`) we adjust the source transformation points. This will be applied on the next and subsequent frames. Since we adjust the perspective transformation, we also set a flag to apply the sliding window detection algorithm on the next video frame. 
+As we encounter curves in the road, the points selected for the perspective transformation drift away from the lanes we aim to detect, and the warped image will contain more undesirable regions surrounding the lane markers, and can result in erroneous lane detection. To address this, the perspective transformation reference points are realigned when necessary. This code for this is in `adjust_RoI_window()` (lines 800-900 in `classes/videopipeline.py`).  
 
+After each reliable lane detection, we take the top and bottom points on each lane and calculate the difference between them and the perspective transformation reference points. If the horizontal difference (along x axis) is larger than a preset threshold (`OFF_CENTER_ROI_THRESHOLD`) we adjust the source transformation points. This will be applied on the next and subsequent frames. Since we adjust the perspective transformation, we also set a flag to apply bootstrapping using the sliding window detection algorithm on the next video frame. 
 
 <p align="center">
 <img title="Perspective transform realignment - before" alt="alt" src="./writeup_images/realignment_1.png"  width="900"/>
@@ -504,7 +507,7 @@ I have discussed a number of approaches taken to address the video lane detectio
 <!-- Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.   -->
 
 
-#### 4.1. General Approach - Image detection pipeline
+#### 4.1. General Approach - Image Detection Pipeline
 
 For image lane detection, an incremental code buildup approach was taken. 
 
@@ -512,7 +515,7 @@ The main work focused on building a basic detection pipeline and implementing th
 
 A substantial number of helper routines were written visualize the results of the detection process at various points in the algorithm. For example, the `PlotDisplay` class (`classes/plotdisplay.py `). An instance of this class allows us to display a varying number of plots together without concerns about the necessary setups required for each individual plot.
 
-#### 4.2. General Approach - Video detection pipeline
+#### 4.2. General Approach - Video Detection Pipeline
 
 For the video detection pipeline, the image pipeline was used as a starting point and built upon.  During development of the image detection pipeline, I did not implement a `Line` class, which could have been used to contain and organize the detected lane data and methods. This resulted in duplication of a number of functions that had to be rewritten during the video detection phase to use `Line` instances, while avoid impact on the image pipeline routines.
 
@@ -522,7 +525,7 @@ The video detection process was able to successfully detect the basic project vi
 
 It was this processing this video that brought about the more complex changes and additions to the video pipeline process. 
 
-#### 4.3. Thresholding of the warped images
+#### 4.3. Warped Image Thresholding
 Generally in the detection process we first apply binary thresholding and then apply perspective transformation to the binary thresholded image. 
 
 During work on the **challenge_video** I also experimented with the reverse order, i.e.,  first warping the video frame, and applying binary thresholding to the warped image. In the case of the challenge videos, this actually provided very good results when the regular processing sequence encountered difficulties in lane detection due to various artifacts present in the image.
@@ -540,17 +543,17 @@ Binary Thresholding results using different processing orders. Left Column: Pers
 </p>
 
 
-#### 4.4. Lane detection under adverse conditions 
+#### 4.4. Lane Detection Under Adverse Conditions 
 One of the main challenges encountered during development of the video lane detection pipeline was adapting our algorithm for robustness towards varying road surface conditions, and extreme scene lighting conditions. 
 
-For the challenge video, a relatively simple conditional thresholding was introduced where each frame was categorized based on each frame's saturation conditions, and appropriate threshold levels were used for binary thresholding. 
+For the **challenge video**, a relatively simple conditional thresholding was introduced, where each frame was categorized based on each frame's saturation conditions, and appropriate threshold levels were used for binary thresholding. 
 
-For the harder challenge video, the simple two level thresholding scheme was no longer sufficient, and the conditional thresholding algorithm was expanded to achieve robustness towards  multiple lighting conditions, as describe in the video pipeline section.
+For the **harder challenge video**, the simple three level thresholding scheme was no longer sufficient, and the conditional thresholding algorithm was expanded to achieve robustness towards  multiple lighting conditions, as describe in the video pipeline section.
 
 Another issue was correctly recognizing lane markers when the road surface had other artifacts that could be easily confused with lane markers. To address this, we introduced detected lane quality assessment, which used simple statistical properties (which are also parameterized and adjustable) to verify whether the algorithm has been able to provide a valid, dependable connection. 
 
 
- #### 4.5. Lane continuation and detection history
+ #### 4.5. Lane Continuation and Detection History
 
 Another challenge was continuing the lane display if lane detection was unsuccessful for one or more video frames. In these situations, we expect the pipeline to fallback on previous detection information to display lane detections as long as it possibly can. 
 
@@ -566,7 +569,7 @@ Another possible option to address this would be to allow  dynamic selection of 
 
  #### 4.6. What are some challenging scenarios when lane detection may fail. What could be done to make it more robust?
 
-Under extremely over- or under-saturated conditions (as example some intervals in the harder challenging video), line detection fails due to the absence of any discernable lane in the image. Additionally in adverse weather conditions where the road surface is covered with ice or snow, or blizzard conditions where visibility is severely reduced, our algorithm will fail to detect lane markers.
+Under extremely over- or under-saturated conditions (as example some intervals in the **harder challenging video**), line detection fails due to the absence of any discernable lane in the image. Similarly in adverse weather conditions where the road surface is covered with ice or snow, or blizzard conditions where visibility is severely reduced, our algorithm will fail to detect lane markers.
 
 To improve robustness more sophisticated lane continuation approaches should be considered, where in addition to the detection history other factors such as close-by vehicles, sign postings and traffic lights, and road surface vs. non-road surface segmentation are take into account. A learning algorithm could be trained to determine optimal threshold parameters based on the image color level, hue and saturation characteristics. 
 
@@ -574,11 +577,12 @@ To improve robustness more sophisticated lane continuation approaches should be 
 
 ## 5. Conclusion
 
-For me this project was an extremely enlightening experience. I spent more than %60 of my time on implementing and testing various approaches to achieve very good lane detection results on the **harder_challenge_video** .  
+For me this project was an extremely enlightening experience. 
 
-The project allowed me to reflect on the various difficulties we face when attempting to use classical computer vision techniques for challenging vision tasks. Many of such solutions  revert to hand-crafted and elaborately fine-tuned feature detection/extraction algorithms which while may be sufficient enough for one task (e.g. project video0) require additional crafting and fine-tuning for slightly different tasks (e.g. the harder challenge video).
+The project allowed me to reflect on the various difficulties we face when attempting to use classical computer vision techniques for challenging vision tasks. Many of such solutions  revert to hand-crafted and elaborately fine-tuned feature detection/extraction algorithms which while may be sufficient enough for one task (e.g. project video0) require additional crafting and fine-tuning for slightly different tasks.I spent more than %60 of my time on implementing and testing various approaches to achieve very good lane detection results on the **harder_challenge_video** .  
 
-Another point to consider is the time constraints. While my solution is working, the time it takes to process a short clip far exceeds the length of the video. Any viable realtime solution must be able to process each frame fast enough so that it doesn't cause a bottleneck in providing output to an autonomous control system. 
+
+Another point to consider is the computational time constraints. While my solution is working, the time it takes to process a short clip far exceeds the length of the video. Any viable realtime solution must be able to process each frame fast enough so that it doesn't cause a bottleneck in providing output to an autonomous control system. 
 
 This is one of the main advantages of deep learning based solutions: removing the tedious task of feature selection and extraction from the shoulders of the computer vision practitioner.
 
